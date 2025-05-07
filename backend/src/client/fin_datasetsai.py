@@ -2,11 +2,12 @@ import requests
 from typing import Any, Dict
 from pydantic import ValidationError
 
-from backend.config import BASE_URL, get_financial_data_ai_api_key
+from config import BASE_URL, get_financial_data_ai_api_key
 from exceptions import APIError, ValidationFailure
-from src.company_news_agent.model import CompanyNewsResponse
-from src.financial_metrics_agent.model import FinancialMetricsResponse
-from src.company_financial_statements_agent.model import CompanyFinancialStatementsResponse
+import asyncio
+from src.agents.company_news_agent.model import CompanyNewsResponse
+from src.agents.financial_metrics_agent.model import FinancialMetricsResponse
+from src.agents.financial_statements_agent.model import CompanyFinancialStatementsResponse
 
 class FinancialDatasetsClient:
     def __init__(self):
@@ -81,6 +82,21 @@ class FinancialDatasetsClient:
             raise APIError("No news found")
         return CompanyNewsResponse.model_validate(data)
 
+async def run_fetch_all_data():
+    client = FinancialDatasetsClient()
+    try:
+        company_news_response = client.fetch_company_news("AAPL", 5)
+        print("\nCOMPANY NEWS: ", company_news_response)
+        financial_statements_response = client.fetch_financial_statements("AAPL", "Q1", 5)
+        print("\nFINANCIAL STATEMENTS: ", financial_statements_response)
+        financial_metrics_response = client.fetch_financial_metrics("AAPL", "quarterly", 5)
+        print("\nFINANCIAL METRICS: ", financial_metrics_response)
 
+    except APIError as e:
+        print(f"API Error: {e}")
+    except ValidationFailure as e:
+        print(f"Validation Error: {e}")
+
+    
 if __name__ == "__main__":
-    asyncio.run(run_fetch_company_news())
+    asyncio.run(run_fetch_all_data())
