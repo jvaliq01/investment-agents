@@ -244,7 +244,7 @@ Provide specific numbers and metrics to support your analysis."""
     async def _get_ai_analysis(self, prompt: str) -> Dict[str, Any]:
         """Get AI analysis using Claude."""
         request = ChatCompletionRequest(
-            model="claude-2.1",
+            model="claude-3-5-sonnet-20240620",
             messages=[
                 ChatMessage(role="user", content=prompt)
             ],
