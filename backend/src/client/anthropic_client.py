@@ -24,7 +24,8 @@ class CompleteRequest(BaseRequest):
     stop_sequences: Optional[List[str]] = Field(None, description="List of stop sequences")
     stream: bool = Field(False, description="Whether to stream response chunks")
 
-    @field_validator("stop_sequences", pre=True, always=False)
+    @field_validator("stop_sequences")
+    @classmethod
     def _validate_stop_sequences(cls, v):
         if v is not None and not isinstance(v, list):
             raise ValueError("stop_sequences must be a list of strings")
@@ -41,17 +42,30 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseRequest):
     messages: List[ChatMessage] = Field(..., description="List of chat history messages")
-    max_tokens_to_sample: int = Field(1024, ge=1)
+    max_tokens: int = Field(1024, ge=1)
     temperature: float = Field(1.0, ge=0.0, le=1.0)
     top_k: Optional[int] = Field(None, ge=0)
     top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
     stop_sequences: Optional[List[str]] = None
     stream: bool = Field(False)
+    system: Optional[str] = Field(None, description="System message to set the behavior of the assistant")
 
 class ChatCompletionResponse(BaseModel):
-    completion: str = Field(...)
-    stop_reason: Optional[str] = None
+    id: str = Field(...)
+    type: str = Field(...)
+    role: str = Field(...)
+    content: List[dict] = Field(...)
     model: str = Field(...)
+    stop_reason: Optional[str] = None
+    stop_sequence: Optional[str] = None
+    usage: Optional[dict] = Field(None, description="Token usage information")
+
+    @property
+    def text(self) -> str:
+        """Get the text content from the response."""
+        if not self.content:
+            return ""
+        return self.content[0].get("text", "")
 
 # --------------------
 # API Client
@@ -113,12 +127,21 @@ class AnthropicClient:
         """
         Perform a chat completion call.
         """
-        payload = request.model_dump_json(exclude_none=True)
+        payload = request.model_dump(exclude_none=True)
+        # Ensure messages are properly formatted
+        payload["messages"] = [msg.model_dump() for msg in request.messages]
+        
         resp = await self._client.post(
-            "/v1/chat/completions", json=payload, headers=self.headers
+            "/v1/messages", 
+            json=payload, 
+            headers={
+                **self.headers,
+                "anthropic-version": "2023-01-01"
+            }
         )
         resp.raise_for_status()
-        return ChatCompletionResponse(**resp.json())
+        data = resp.json()
+        return ChatCompletionResponse(**data)
 
     async def stream_chat_complete(
         self, request: ChatCompletionRequest

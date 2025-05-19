@@ -1,43 +1,18 @@
-from pydantic import BaseModel, Field
 import os 
 import sys
 from dotenv import load_dotenv
-from agents.financial_metrics_agent.workflow 
+from backend.src.agents.financial_statements_agent.workflow import FinancialStatementsAgent
+from backend.src.client.fin_datasetsai import FinancialDatasetsClient
+from backend.src.client.anthropic_client import AnthropicClient
+from backend.src.config import CONFIG
 
 load_dotenv()
 
-
-
-
-class GlobalConfig(BaseModel):
-    """
-    Global configuration for the application.
-    """
-    api_key: str = Field(..., description="API key for authentication")
-    api_url: str = Field(..., description="Base URL for the API")
-    timeout: int | None = Field(None, description="Timeout for API requests in seconds") 
-    max_retries: int | None = Field(None, description="Maximum number of retries for failed requests")
-
-CONFIG: GlobalConfig = GlobalConfig(
-    api_key=os.environ.get("ANTHROPIC_API_KEY"),
-    api_url="https://api.anthropic.com",
-)
-
-async def master_orhcestrator(
-    stock_ticker: str,
-    start_date: str,
-    end_date: str,
-) -> BaseModel:
+async def master_orchestrator(ticker: str, start_date: str, end_date: str):
+    """Orchestrates the execution of financial analysis agents."""
+    financial_client = FinancialDatasetsClient(CONFIG.financial_datasets_api_key, CONFIG.financial_datasets_api_url)
+    anthropic_client = AnthropicClient(CONFIG.anthropic_api_key)
     
-    config = GlobalConfig(api_key=os.environ.get("ANTHROPIC_API_KEY"), api_url="https://api.anthropic.com")
-     
+    agent = FinancialStatementsAgent(financial_client, anthropic_client)
+    return await agent.analyze(ticker=ticker, report_period_gte=start_date, report_period_lte=end_date)
 
-    # run company news agent
-    run_company_news_agent()
-    # run financial metrics agent
-    # run financial statements agent   
-    
-
-    # bring all together
-
-    # return the result

@@ -2,19 +2,17 @@ import requests
 from typing import Any, Dict
 from pydantic import ValidationError
 
-from config import BASE_URL, get_financial_data_ai_api_key
-from exceptions import APIError, ValidationFailure
+from backend.exceptions import APIError, ValidationFailure
 import asyncio
-from src.agents.company_news_agent.model import CompanyNewsResponse
-from src.agents.financial_metrics_agent.model import FinancialMetricsResponse
-from src.agents.financial_statements_agent.model import CompanyFinancialStatementsResponse
+from backend.src.agents.company_news_agent.model import CompanyNewsResponse
+from backend.src.agents.financial_metrics_agent.model import FinancialMetricsResponse
+from backend.src.agents.financial_statements_agent.model import CompanyFinancialStatementsResponse
 
 class FinancialDatasetsClient:
-    def __init__(self):
-        self.base_url = BASE_URL
+    def __init__(self, api_key, base_url):
+        self.base_url = base_url
         self.headers = {}
-        if api_key := get_financial_data_ai_api_key():
-            self.headers["X-API-KEY"] = api_key
+        self.headers["X-API-KEY"] = api_key
 
     def _get(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.base_url}/{endpoint}"

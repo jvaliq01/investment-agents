@@ -4,8 +4,8 @@ The agent uses various tools to analyze financial data and make informed decisio
 """
 from typing import Optional, Dict, Any, List, Tuple
 from abc import ABC, abstractmethod
-from src.client.fin_datasetsai import FinancialDatasetsClient
-from src.client.anthropic_client import AnthropicClient, ChatCompletionRequest, ChatMessage
+from backend.src.client.fin_datasetsai import FinancialDatasetsClient
+from backend.src.client.anthropic_client import AnthropicClient, ChatCompletionRequest, ChatMessage
 from .model import (
     CompanyFinancialStatementsResponse,
     IncomeStatement,
@@ -29,18 +29,6 @@ class FinancialTool(ABC):
         """
         pass
 
-class ProfitabilityAnalyzer(FinancialTool):
-    def execute(self, income: IncomeStatement) -> Dict[str, float]:
-        """Analyze profitability metrics."""
-        if not income.revenue or not income.net_income:
-            return {}
-        
-        return {
-            "gross_margin": (income.gross_profit / income.revenue * 100) if income.gross_profit else 0,
-            "operating_margin": (income.operating_income / income.revenue * 100) if income.operating_income else 0,
-            "net_margin": (income.net_income / income.revenue * 100) if income.net_income else 0,
-        }
-
 class LiquidityAnalyzer(FinancialTool):
     def execute(self, balance: BalanceSheet) -> Dict[str, float]:
         """Analyze liquidity metrics."""
@@ -52,43 +40,6 @@ class LiquidityAnalyzer(FinancialTool):
             "quick_ratio": (balance.current_assets - balance.inventory) / balance.current_liabilities if balance.inventory else 0,
         }
 
-class LeverageAnalyzer(FinancialTool):
-    def execute(self, balance: BalanceSheet) -> Dict[str, float]:
-        """Analyze leverage metrics."""
-        if not balance.total_assets or not balance.total_liabilities:
-            return {}
-        
-        return {
-            "debt_to_equity": balance.total_liabilities / balance.shareholders_equity if balance.shareholders_equity else 0,
-            "debt_to_assets": balance.total_liabilities / balance.total_assets,
-        }
-
-class EfficiencyAnalyzer(FinancialTool):
-    def execute(self, data: Tuple[IncomeStatement, BalanceSheet]) -> Dict[str, float]:
-        """Analyze efficiency metrics."""
-        income, balance = data
-        if not income.revenue or not balance.total_assets:
-            return {}
-        
-        return {
-            "asset_turnover": income.revenue / balance.total_assets,
-            "return_on_assets": (income.net_income / balance.total_assets * 100) if income.net_income else 0,
-            "return_on_equity": (income.net_income / balance.shareholders_equity * 100) 
-                if income.net_income and balance.shareholders_equity else 0,
-        }
-
-class CashFlowAnalyzer(FinancialTool):
-    def execute(self, cash_flow: CashFlowStatement) -> Dict[str, float]:
-        """Analyze cash flow metrics."""
-        if not cash_flow.net_income:
-            return {}
-        
-        return {
-            "operating_cash_flow_ratio": (cash_flow.net_cash_flow_from_operations / cash_flow.net_income * 100) 
-                if cash_flow.net_cash_flow_from_operations else 0,
-            "free_cash_flow_yield": (cash_flow.free_cash_flow / cash_flow.net_income * 100) 
-                if cash_flow.free_cash_flow else 0,
-        }
 
 class GrowthAnalyzer(FinancialTool):
     def execute(self, statements: List[IncomeStatement]) -> Dict[str, float]:
@@ -110,15 +61,11 @@ class GrowthAnalyzer(FinancialTool):
         }
 
 class FinancialStatementsAgent:
-    def __init__(self):
-        self.financial_client = FinancialDatasetsClient()
-        self.anthropic_client = AnthropicClient()
+    def __init__(self, financial_datasets_client, anthropic_client):
+        self.financial_client = financial_datasets_client
+        self.anthropic_client = anthropic_client
         self.tools = {
-            "profitability": ProfitabilityAnalyzer(),
             "liquidity": LiquidityAnalyzer(),
-            "leverage": LeverageAnalyzer(),
-            "efficiency": EfficiencyAnalyzer(),
-            "cash_flow": CashFlowAnalyzer(),
             "growth": GrowthAnalyzer(),
         }
 
@@ -168,16 +115,14 @@ class FinancialStatementsAgent:
 
         # Use each tool to analyze relevant data
         metrics = {
-            "profitability": self.tools["profitability"].execute(latest_income),
             "liquidity": self.tools["liquidity"].execute(latest_balance),
-            "leverage": self.tools["leverage"].execute(latest_balance),
-            "efficiency": self.tools["efficiency"].execute((latest_income, latest_balance)),
+            "growth": self.tools["growth"].execute(statements.financials.income_statements),
         }
 
-        if latest_cash_flow:
-            metrics["cash_flow"] = self.tools["cash_flow"].execute(latest_cash_flow)
+        # if latest_cash_flow:
+        #     metrics["cash_flow"] = self.tools["cash_flow"].execute(latest_cash_flow)
 
-        metrics["growth"] = self.tools["growth"].execute(statements.financials.income_statements)
+        # metrics["growth"] = self.tools["growth"].execute(statements.financials.income_statements)
 
         return metrics
 
@@ -244,30 +189,18 @@ Provide specific numbers and metrics to support your analysis."""
     async def _get_ai_analysis(self, prompt: str) -> Dict[str, Any]:
         """Get AI analysis using Claude."""
         request = ChatCompletionRequest(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-sonnet-20240229",
             messages=[
                 ChatMessage(role="user", content=prompt)
             ],
-            max_tokens_to_sample=4000,
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=4000
         )
         
         response = await self.anthropic_client.chat_complete(request)
         return {
-            "analysis": response.completion,
+            "analysis": response.content[0]["text"],
             "model": response.model,
             "stop_reason": response.stop_reason
         }
 
-async def analyze_company(ticker: str) -> Dict[str, Any]:
-    """
-    Analyze a company's financial statements and get trading recommendations.
-    
-    Args:
-        ticker: Company stock ticker
-        
-    Returns:
-        Dict containing analysis results and trading recommendation
-    """
-    agent = FinancialStatementsAgent()
-    return await agent.analyze(ticker=ticker)
