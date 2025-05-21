@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 from dotenv import load_dotenv
 import os
 
@@ -9,9 +9,9 @@ class GlobalConfig(BaseModel):
     Global configuration for the application.
     """
     anthropic_api_key: str = Field(..., description="Anthropic API key for authentication")
-    anthropic_api_url: str = Field(..., description="Base URL for the API")
+    anthropic_api_url: HttpUrl = Field(..., description="Base URL for the API")
     financial_datasets_api_key: str = Field(..., description="Financial Datasets Api Key")
-    financial_datasets_api_url: str = Field(..., description="Financial Datasets Api URL")
+    financial_datasets_api_url: HttpUrl = Field(..., description="Financial Datasets Api URL")
     timeout: int | None = Field(None, description="Timeout for API requests in seconds") 
     max_retries: int | None = Field(None, description="Maximum number of retries for failed requests")
 
@@ -24,3 +24,11 @@ CONFIG = GlobalConfig(
     timeout=int(os.getenv("API_TIMEOUT", "30")),
     max_retries=int(os.getenv("API_MAX_RETRIES", "3"))
 ) 
+
+
+if __name__ == "__main__":
+    # Example usage
+    print("Anthropic API Key:", CONFIG.anthropic_api_key)
+    print("Financial Datasets API Key:", CONFIG.financial_datasets_api_key)
+    print("Timeout:", CONFIG.timeout)
+    print("Max Retries:", CONFIG.max_retries)

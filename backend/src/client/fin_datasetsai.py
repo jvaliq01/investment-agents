@@ -7,6 +7,9 @@ import asyncio
 from backend.src.agents.company_news_agent.model import CompanyNewsResponse
 from backend.src.agents.financial_metrics_agent.model import FinancialMetricsResponse
 from backend.src.agents.financial_statements_agent.model import CompanyFinancialStatementsResponse
+import os 
+from dotenv import load_dotenv
+load_dotenv()
 
 class FinancialDatasetsClient:
     def __init__(self, api_key, base_url):
@@ -15,7 +18,19 @@ class FinancialDatasetsClient:
         self.headers["X-API-KEY"] = api_key
 
     def _get(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        url = f"{self.base_url}/{endpoint}"
+        """
+        Helper method to make GET requests to the API.
+        Args:
+            endpoint (str): The API endpoint to call.
+            params (Dict[str, Any]): The query parameters to include in the request.
+        Returns:
+            Dict[str, Any]: The JSON response from the API.
+        """
+
+        url = (f"{self.base_url}{endpoint}"    
+               f"{'?' if params else ''}{'&'.join([f'{k}={v}' for k, v in params.items()])}"
+        )
+        print("\nURL: ", url)
         resp = requests.get(url, headers=self.headers, params=params)
         if resp.status_code != 200:
             raise APIError(f"{resp.status_code} {resp.text}")
@@ -69,11 +84,13 @@ class FinancialDatasetsClient:
     def fetch_company_news(
         self, ticker: str, limit: int, start_date: str = None, end_date: str = None
     ) -> CompanyNewsResponse:
+
         params = {"ticker": ticker, "limit": limit}
         if start_date:
             params["start_date"] = start_date
         if end_date:
             params["end_date"] = end_date
+
 
         data = self._get("news", params)
         if not data:
@@ -81,7 +98,13 @@ class FinancialDatasetsClient:
         return CompanyNewsResponse.model_validate(data)
 
 async def run_fetch_all_data():
-    client = FinancialDatasetsClient()
+    api_key = os.getenv("FINANCIAL_DATASETS_API_KEY")
+    base_url = os.getenv("FINANCIAL_DATASETS_API_URL")
+    
+    client = FinancialDatasetsClient(
+        api_key= api_key,
+        base_url= base_url
+    )
     try:
         company_news_response = client.fetch_company_news("AAPL", 5)
         print("\nCOMPANY NEWS: ", company_news_response)
@@ -95,6 +118,6 @@ async def run_fetch_all_data():
     except ValidationFailure as e:
         print(f"Validation Error: {e}")
 
-    
+
 if __name__ == "__main__":
     asyncio.run(run_fetch_all_data())
