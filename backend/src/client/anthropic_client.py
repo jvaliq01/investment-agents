@@ -1,19 +1,22 @@
 import os
 import json
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional, AsyncGenerator, Dict
 import httpx
 from pydantic import BaseModel, Field, field_validator
+import asyncio
 
 # Base URL for Claude endpoints
 ANTHROPIC_API_URL = "https://api.anthropic.com"
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 120.0  # Increased from 30.0 to 120.0 seconds
+ANTHROPIC_API_VERSION = "2023-06-01"  # Updated to a recent version
+MAX_RETRIES = 3  # Maximum number of retry attempts
 
 # --------------------
 # Pydantic Models
 # --------------------
 
 class BaseRequest(BaseModel):
-    model: str = Field(..., description="Model name, e.g. 'claude-2.1' or 'claude-instant-v1'")
+    model: str = Field(..., description="Model name, e.g. 'claude-3-opus-20240229'")
 
 class CompleteRequest(BaseRequest):
     prompt: str = Field(..., description="The prompt string to be completed")
@@ -54,7 +57,7 @@ class ChatCompletionResponse(BaseModel):
     id: str = Field(...)
     type: str = Field(...)
     role: str = Field(...)
-    content: List[dict] = Field(...)
+    content: List[Dict[str, str]] = Field(...)  # Changed to List[Dict] to match Anthropic's response format
     model: str = Field(...)
     stop_reason: Optional[str] = None
     stop_sequence: Optional[str] = None
@@ -63,9 +66,10 @@ class ChatCompletionResponse(BaseModel):
     @property
     def text(self) -> str:
         """Get the text content from the response."""
-        if not self.content:
-            return ""
-        return self.content[0].get("text", "")
+        # Extract text from the first content block
+        if self.content and len(self.content) > 0:
+            return self.content[0].get("text", "")
+        return ""
 
 # --------------------
 # API Client
@@ -85,6 +89,7 @@ class AnthropicClient:
         self.headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json",
+            "anthropic-version": ANTHROPIC_API_VERSION,
         }
         self._client = httpx.AsyncClient(
             base_url=ANTHROPIC_API_URL,
@@ -96,8 +101,10 @@ class AnthropicClient:
     ) -> CompleteResponse:
         """
         Perform a one-shot completion call.
+        
+        Note: This API (/v1/complete) is deprecated. Consider using chat API instead.
         """
-        payload = request.model_dump_json(exclude_none=True)
+        payload = request.model_dump(exclude_none=True)
         resp = await self._client.post(
             "/v1/complete", json=payload, headers=self.headers
         )
@@ -109,15 +116,19 @@ class AnthropicClient:
     ) -> AsyncGenerator[CompleteResponse, None]:
         """
         Stream completion in chunks.
+        
+        Note: This API (/v1/complete) is deprecated. Consider using chat API instead.
         """
-        payload = request.model_dump_json(exclude_none=True)
-        payload['stream'] = True
+        request_copy = request.model_copy()
+        request_copy.stream = True
+        payload = request_copy.model_dump(exclude_none=True)
+        
         async with self._client.stream(
             "POST", "/v1/complete", json=payload, headers=self.headers
         ) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
-                if line:
+                if line and line.strip():
                     data = json.loads(line)
                     yield CompleteResponse(**data)
 
@@ -125,40 +136,77 @@ class AnthropicClient:
         self, request: ChatCompletionRequest
     ) -> ChatCompletionResponse:
         """
-        Perform a chat completion call.
+        Perform a chat completion call using the messages API with retry logic.
         """
         payload = request.model_dump(exclude_none=True)
-        # Ensure messages are properly formatted
+        # Format messages to match Anthropic's expected format
         payload["messages"] = [msg.model_dump() for msg in request.messages]
         
-        resp = await self._client.post(
-            "/v1/messages", 
-            json=payload, 
-            headers={
-                **self.headers,
-                "anthropic-version": "2023-01-01"
-            }
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return ChatCompletionResponse(**data)
+        last_exception = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                resp = await self._client.post(
+                    "/v1/messages", 
+                    json=payload,
+                    headers=self.headers
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return ChatCompletionResponse(**data)
+            except (httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+                last_exception = e
+                if attempt < MAX_RETRIES - 1:
+                    # Exponential backoff: 2^attempt seconds
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                raise last_exception
+            except Exception as e:
+                raise e
 
     async def stream_chat_complete(
         self, request: ChatCompletionRequest
     ) -> AsyncGenerator[ChatCompletionResponse, None]:
         """
-        Stream chat completion in chunks.
+        Stream chat completion in chunks using the messages API.
         """
-        payload = request.model_dump_json(exclude_none=True)
-        payload['stream'] = True
+        request_copy = request.model_copy()
+        request_copy.stream = True
+        payload = request_copy.model_dump(exclude_none=True)
+        
+        # Format messages to match Anthropic's expected format
+        payload["messages"] = [msg.model_dump() for msg in request.messages]
+        
         async with self._client.stream(
-            "POST", "/v1/chat/completions", json=payload, headers=self.headers
+            "POST", "/v1/messages", json=payload, headers=self.headers
         ) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
-                if line:
-                    data = json.loads(line)
-                    yield ChatCompletionResponse(**data)
+                if line and line.strip():
+                    try:
+                        data = json.loads(line)
+                        if data.get("type") == "content_block_delta":
+                            # Handle streaming response format which is different
+                            # This is a simplification - you may need to accumulate deltas
+                            yield ChatCompletionResponse(
+                                id=data.get("message_id", ""),
+                                type=data.get("type", ""),
+                                role="assistant",
+                                content=data.get("delta", {}).get("text", ""),
+                                model=request.model,
+                                stop_reason=None
+                            )
+                        elif data.get("type") == "message_stop":
+                            # Final message with stop reason
+                            yield ChatCompletionResponse(
+                                id=data.get("message_id", ""),
+                                type="message_stop",
+                                role="assistant",
+                                content="",
+                                model=request.model,
+                                stop_reason=data.get("stop_reason")
+                            )
+                    except json.JSONDecodeError:
+                        continue
 
     async def close(self):
         """
