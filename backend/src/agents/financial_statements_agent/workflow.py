@@ -197,7 +197,9 @@ Provide specific numbers and metrics to support your analysis."""
             max_tokens=4000
         )
         
+        print(f"Sending request to Anthropic")
         response = await self.anthropic_client.chat_complete(request)
+        print(f"Received response from Anthropic")
         return {
             "analysis": response.content[0]["text"],
             "model": response.model,
