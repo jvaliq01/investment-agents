@@ -3,3 +3,4 @@ anthropic==0.45.2
 pydantic==2.11.3
 python-dotenv==1.0.0 
 rich==13.6.0  
+dedent==0.5

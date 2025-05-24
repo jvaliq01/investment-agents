@@ -112,6 +112,8 @@ class AnthropicClient(BaseModel):
             {"role": msg.role, "content": msg.content} for msg in request.messages
         ]
 
+        print(f"Payload for chat_complete: {json.dumps(payload, indent=2)}")
+
         try:
             result = client.messages.create(**payload)
         except Exception as e:

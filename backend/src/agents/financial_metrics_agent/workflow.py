@@ -1,3 +1,9 @@
+"""
+Financial Metrics Agent Workflow
+This module contains the FinancialMetricsAgent class, which is responsible for analyzing financial metrics 
+using a language model (LLM) and fetching data from a financial datasets API.
+"""
+
 from backend.src.client.anthropic_client import ChatCompletionRequest, ChatMessage, ChatCompletionResponse, AnthropicClient
 from backend.src.client.fin_datasetsai import FinancialDatasetsClient
 from backend.src.config import CONFIG
@@ -6,21 +12,22 @@ from typing import Any, Dict, List, Optional
 from backend.src.agents.financial_metrics_agent.model import FinancialMetrics, FinancialMetricsResponse, FinancialMetricsRequest
 import asyncio
 from anthropic import Anthropic
+from textwrap import dedent
 
 
 class FinancialMetricsAgent(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    financial_client: FinancialDatasetsClient
+    financial_client: FinancialDatasetsClient   
     anthropic_client: AnthropicClient
+    fin_metrics_request: FinancialMetricsRequest
 
-    async def _get_financial_metrics(self, fin_metrics_request: FinancialMetricsRequest) -> FinancialMetricsResponse | None:
+
+    async def _get_financial_metrics(self) -> FinancialMetricsResponse | None:
         # Implementation here
         try:
             metrics = self.financial_client.fetch_financial_metrics(
-                ticker=fin_metrics_request.ticker,
-                period=fin_metrics_request.period,
-                limit=fin_metrics_request.limit
+                self.fin_metrics_request
             )
         except Exception as e:
             print(f"Error fetching financial metrics: {e}")
@@ -31,25 +38,47 @@ class FinancialMetricsAgent(BaseModel):
 
         return metrics
 
+    async def _prompt_for_financial_metrics(self) -> str:
+        """
+        Create a prompt for the LLM to analyze financial metrics.
+        """
+        metrics = await self._get_financial_metrics()
+        if not metrics:
+            return "No financial metrics available."
+
+        prompt = dedent(f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
+        You are tasked with analyzing the financial metrics of a company.
+        You are given the following financial metrics:
+        - Ticker: {self.fin_metrics_request.ticker}
+        - Period: {self.fin_metrics_request.period}
+        - Limit: {self.fin_metrics_request.limit}'
+
+        You are to analyze the following financial metrics:
+        {metrics}:
+                    \n""")
+        # Add more metrics as needed
+
+        return prompt
+
     async def analyze_metrics_with_llm(self,
                                         fin_metrics_request: FinancialMetricsRequest 
                                         ) -> ChatCompletionResponse:
         """
         Analyze trends using the LLM.
         """
-        metrics = await self._get_financial_metrics(fin_metrics_request)
         # Implementation here
+        prompt = await self._prompt_for_financial_metrics()  
 
         analyze_metrics_request = ChatCompletionRequest(
             model="claude-3-7-sonnet-20250219",
             messages=[
-                ChatMessage(role="user", content=f"Analyze the following financial metrics: {metrics}")],
+                ChatMessage(role="user", content=f"{prompt}")],
             temperature=0.7,
-            max_tokens=64000,
+            max_tokens=32000,
         )
 
 
-        chat_response = await anthropic_client.chat_complete(analyze_metrics_request)
+        chat_response = await self.anthropic_client.chat_complete(analyze_metrics_request)
 
         print(f"TYPE: {type(chat_response)}")
 
@@ -70,18 +99,21 @@ if __name__ == "__main__":
         anthropic_api_url=CONFIG.anthropic_api_url,
         )
 
-    # instantiate the agent with keyword args
-    agent = FinancialMetricsAgent(
-        financial_client=financial_client,
-        anthropic_client=anthropic_client,
-    )
-
-    # financial metrics request
     fin_metrics_request = FinancialMetricsRequest(
         ticker="AAPL",
         period="quarterly",
         limit=4,
     )
+
+    # instantiate the agent with keyword args
+    agent = FinancialMetricsAgent(
+        financial_client=financial_client,
+        anthropic_client=anthropic_client,
+        fin_metrics_request=fin_metrics_request,
+        )
+
+
+
 
     analysis = asyncio.run(agent.analyze_metrics_with_llm(fin_metrics_request))
     print(analysis)
