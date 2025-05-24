@@ -5,6 +5,7 @@ Define the data model for the financial metrics agent.
 from typing import Optional, List
 from pydantic import BaseModel
 from typing import Literal
+from datetime import datetime
 
 
 ##### FINANCIAL METRICS #####
@@ -15,11 +16,9 @@ type PeriodTypes = Literal["annual", "quarterly", "ttm"]
 
 class FinancialMetricsRequest(BaseModel):
     ticker: str
-    limit: int | None = None
-    report_period_gte: str | None = None
-    report_period_lte: str | None = None
-    report_period_gt: str | None = None
-    report_period_lt: str | None = None
+    limit: Optional[int] = None
+    report_period_gte: Optional[datetime] = None
+    report_period_lte: Optional[datetime] = None
     period: PeriodTypes = None
 
 ## Response Model ##
