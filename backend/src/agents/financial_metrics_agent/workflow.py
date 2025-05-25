@@ -60,9 +60,7 @@ class FinancialMetricsAgent(BaseModel):
 
         return prompt
 
-    async def analyze_metrics_with_llm(self,
-                                        fin_metrics_request: FinancialMetricsRequest 
-                                        ) -> ChatCompletionResponse:
+    async def analyze_metrics_with_llm(self) -> ChatCompletionResponse:
         """
         Analyze trends using the LLM.
         """
@@ -74,7 +72,7 @@ class FinancialMetricsAgent(BaseModel):
             messages=[
                 ChatMessage(role="user", content=f"{prompt}")],
             temperature=0.7,
-            max_tokens=32000,
+            max_tokens=32000
         )
 
 

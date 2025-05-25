@@ -21,6 +21,6 @@ CONFIG = GlobalConfig(
     anthropic_api_url=os.getenv("ANTHROPIC_API_URL"),
     financial_datasets_api_key=os.getenv("FINANCIAL_DATASETS_API_KEY"),
     financial_datasets_api_url=os.getenv("FINANCIAL_DATASETS_API_URL"),
-    timeout=30,
-    max_retries=3
+    timeout=int(os.getenv("API_TIMEOUT", "30")),
+    max_retries=int(os.getenv("API_MAX_RETRIES", "3"))
 ) 
