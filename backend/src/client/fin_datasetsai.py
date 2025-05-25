@@ -1,12 +1,12 @@
 import requests
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from pydantic import ValidationError
-
 from backend.exceptions import APIError, ValidationFailure
 import asyncio
 from backend.src.agents.company_news_agent.model import CompanyNewsResponse
-from backend.src.agents.financial_metrics_agent.model import FinancialMetricsResponse
+from backend.src.agents.financial_metrics_agent.model import FinancialMetricsRequest, FinancialMetricsResponse
 from backend.src.agents.financial_statements_agent.model import CompanyFinancialStatementsResponse
+from backend.src.config import CONFIG
 
 class FinancialDatasetsClient:
     def __init__(self, api_key, base_url):
@@ -15,18 +15,28 @@ class FinancialDatasetsClient:
         self.headers["X-API-KEY"] = api_key
 
     def _get(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        print("\nPARAMS: ", params)
         url = f"{self.base_url}/{endpoint}"
+        print("\nURL: ", url)
         resp = requests.get(url, headers=self.headers, params=params)
+        print("\nRESPONSE: ", resp.json())
         if resp.status_code != 200:
             raise APIError(f"{resp.status_code} {resp.text}")
         return resp.json()
 
     def fetch_financial_metrics(
-        self, ticker: str, period: str, limit: int
+        self, 
+        fin_metrics_request: FinancialMetricsRequest
     ) -> FinancialMetricsResponse:
+        ticker = fin_metrics_request.ticker
+        period = fin_metrics_request.period
+        limit = fin_metrics_request.limit
+        report_period_gte = fin_metrics_request.report_period_gte
+        report_period_lte = fin_metrics_request.report_period_lte
+
         data = self._get(
             "financial-metrics",
-            {"ticker": ticker, "period": period, "limit": limit},
+            {"ticker": ticker, "period": period, "limit": limit, "report_period_gte": report_period_gte, "report_period_lte": report_period_lte},
         )
         metrics = data.get("financial_metrics", [])
         if not metrics:
@@ -50,8 +60,6 @@ class FinancialDatasetsClient:
         ticker: str,
         period: str,
         limit: int,
-        report_period_gte: str = None,
-        report_period_lte: str = None,
     ) -> CompanyFinancialStatementsResponse:
         params = {
             "ticker": ticker,
@@ -67,7 +75,10 @@ class FinancialDatasetsClient:
         return CompanyFinancialStatementsResponse.model_validate(data)
 
     def fetch_company_news(
-        self, ticker: str, limit: int, start_date: str = None, end_date: str = None
+        self, ticker: str, 
+        limit: Optional[int] = None, 
+        start_date: Optional[str] = None, 
+        end_date: Optional[str] = None
     ) -> CompanyNewsResponse:
         params = {"ticker": ticker, "limit": limit}
         if start_date:
@@ -81,14 +92,17 @@ class FinancialDatasetsClient:
         return CompanyNewsResponse.model_validate(data)
 
 async def run_fetch_all_data():
-    client = FinancialDatasetsClient()
+    client = FinancialDatasetsClient(
+        api_key=CONFIG.financial_datasets_api_key,
+        base_url=CONFIG.financial_datasets_api_url,
+    )
     try:
-        company_news_response = client.fetch_company_news("AAPL", 5)
-        print("\nCOMPANY NEWS: ", company_news_response)
+        # company_news_response = client.fetch_company_news("AAPL", limit=5)  
+        # print("\nCOMPANY NEWS: ", company_news_response)
         financial_statements_response = client.fetch_financial_statements("AAPL", "Q1", 5)
         print("\nFINANCIAL STATEMENTS: ", financial_statements_response)
-        financial_metrics_response = client.fetch_financial_metrics("AAPL", "quarterly", 5)
-        print("\nFINANCIAL METRICS: ", financial_metrics_response)
+        # financial_metrics_response = client.fetch_financial_metrics("AAPL", "quarterly",a 5)
+        # print("\nFINANCIAL METRICS: ", financial_metrics_response)
 
     except APIError as e:
         print(f"API Error: {e}")
