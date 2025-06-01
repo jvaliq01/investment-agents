@@ -68,7 +68,7 @@ class FinancialMetricsAgent(BaseModel):
         prompt = await self._prompt_for_financial_metrics()  
 
         analyze_metrics_request = ChatCompletionRequest(
-            model="claude-3-7-sonnet-20250219",
+            model="claude-sonnet-4-20250514",
             messages=[
                 ChatMessage(role="user", content=f"{prompt}")],
             temperature=0.7,
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         financial_client=financial_client,
         anthropic_client=anthropic_client,
         fin_metrics_request=fin_metrics_request,
-        )
+    )
 
 
 

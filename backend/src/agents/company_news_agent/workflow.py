@@ -81,7 +81,7 @@ class CompanyNewsAgent(BaseModel):
 
         # Implementation here
         analyze_news_request = ChatCompletionRequest(
-            model="claude-3-7-sonnet-20250219",
+            model="claude-sonnet-4-20250514",
             messages=[
                 ChatMessage(role="user", content=f"{prompt}")],
             temperature=0.7,
