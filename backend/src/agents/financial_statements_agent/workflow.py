@@ -29,17 +29,6 @@ class FinancialTool(ABC):
         """
         pass
 
-class LiquidityAnalyzer(FinancialTool):
-    def execute(self, balance: BalanceSheet) -> Dict[str, float]:
-        """Analyze liquidity metrics."""
-        if not balance.current_assets or not balance.current_liabilities:
-            return {}
-        
-        return {
-            "current_ratio": balance.current_assets / balance.current_liabilities,
-            "quick_ratio": (balance.current_assets - balance.inventory) / balance.current_liabilities if balance.inventory else 0,
-        }
-
 
 class GrowthAnalyzer(FinancialTool):
     def execute(self, statements: List[IncomeStatement]) -> Dict[str, float]:

@@ -6,6 +6,19 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 
+
+# periods can be 'annual', 'quarterly', or 'monthly'
+from typing import Literal
+PeriodTypes = Literal["annual", "quarterly", "monthly"]
+
+class FinancialStatementsRequest(BaseModel):
+    ticker: str
+    period: PeriodTypes
+    limit: Optional[int] = None
+    cik: Optional[str] = None
+    report_period_gte: Optional[str] = None
+    report_period_lte: Optional[str] = None
+
 ##### FINANCIAL STATEMENTS #####
 class IncomeStatement(BaseModel):
     ticker: str
@@ -106,7 +119,7 @@ class CashFlowStatement(BaseModel):
         validate_by_name = True
 
 
-class CompanyFinancialStatements(BaseModel):
+class FinancialStatements(BaseModel):
     income_statements: List[IncomeStatement]
     balance_sheets: List[BalanceSheet]
     cash_flow_statements: List[CashFlowStatement]
@@ -116,9 +129,9 @@ class CompanyFinancialStatements(BaseModel):
         validate_by_name = True
 
 
-class CompanyFinancialStatementsResponse(BaseModel):
-    financials: CompanyFinancialStatements
-
+class FinancialStatementsResponse(BaseModel):
+    financials: FinancialStatements
+ 
     class Config:
         extra = "ignore"
         validate_by_name = True
