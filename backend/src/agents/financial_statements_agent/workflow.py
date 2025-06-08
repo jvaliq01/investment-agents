@@ -1,197 +1,122 @@
 """
-This module implements an agent for analyzing financial statements and making trading decisions.
-The agent uses various tools to analyze financial data and make informed decisions.
+Financial Metrics Agent Workflow
+This module contains the FinancialMetricsAgent class, which is responsible for analyzing financial metrics 
+using a language model (LLM) and fetching data from a financial datasets API.
 """
-from typing import Optional, Dict, Any, List, Tuple
-from abc import ABC, abstractmethod
+
+from backend.src.client.anthropic_client import ChatCompletionRequest, ChatMessage, ChatCompletionResponse, AnthropicClient
 from backend.src.client.fin_datasetsai import FinancialDatasetsClient
-from backend.src.client.anthropic_client import AnthropicClient, ChatCompletionRequest, ChatMessage
-from .model import (
-    CompanyFinancialStatementsResponse,
-    IncomeStatement,
-    BalanceSheet,
-    CashFlowStatement
-)
+from backend.src.config import CONFIG
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, Dict, List, Optional
+from backend.src.agents.financial_statements_agent.model import CompanyFinancialStatements, CompanyFinancialStatementsResponse, CompanyFinancialStatementsRequest
+import asyncio
+from anthropic import Anthropic
+from textwrap import dedent
 
-class FinancialTool(ABC):
-    """Abstract base class defining the interface for financial analysis tools."""
-    
-    @abstractmethod
-    def execute(self, data: Any) -> Dict[str, Any]:
+class FinancialStatementsAgent(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    financial_client: FinancialDatasetsClient   
+    anthropic_client: AnthropicClient
+    fin_statements_request: CompanyFinancialStatementsRequest
+
+
+    async def _get_financial_statements(self) -> CompanyFinancialStatementsResponse | None:
+        # Implementation here
+        try:
+            statements = self.financial_client.fetch_financial_statements(
+                self.fin_statements_request.ticker,
+                self.fin_statements_request.period,
+                self.fin_statements_request.limit,
+            )
+        except Exception as e:
+            print(f"Error fetching financial statements: {e}")
+            return None
+        if not statements:
+            print("No financial statements found.")
+            return None
+
+        return statements
+
+    async def _prompt_for_financial_statements(self) -> str:
         """
-        Execute the tool's analysis on the provided data.
-        
-        Args:
-            data: The financial data to analyze. Type depends on the specific tool.
-            
-        Returns:
-            Dict containing the analysis results.
+        Create a prompt for the LLM to analyze financial metrics.
         """
-        pass
 
+        statements = await self._get_financial_statements()
+        if not statements:
+            return "No financial metrics available."
 
-class GrowthAnalyzer(FinancialTool):
-    def execute(self, statements: List[IncomeStatement]) -> Dict[str, float]:
-        """Analyze growth metrics."""
-        if len(statements) < 2:
-            return {}
-        
-        current = statements[0]
-        previous = statements[1]
-        
-        def calculate_growth(current: float, previous: float) -> float:
-            if previous == 0:
-                return 0
-            return ((current - previous) / abs(previous)) * 100
-        
-        return {
-            "revenue_growth": calculate_growth(current.revenue or 0, previous.revenue or 0),
-            "net_income_growth": calculate_growth(current.net_income or 0, previous.net_income or 0),
-        }
+        prompt = dedent(f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
+        You are tasked with analyzing the financial statements of a company.
+        You are given the following financial statements:
+        - Ticker: {self.fin_statements_request.ticker}
+        - Period: {self.fin_statements_request.period}
+        - Limit: {self.fin_statements_request.limit}'
 
-class FinancialStatementsAgent:
-    def __init__(self, financial_datasets_client, anthropic_client):
-        self.financial_client = financial_datasets_client
-        self.anthropic_client = anthropic_client
-        self.tools = {
-            "liquidity": LiquidityAnalyzer(),
-            "growth": GrowthAnalyzer(),
-        }
+        You are to analyze the following financial statements:
+        {statements}:
+                    \n""")
+        # Add more metrics as needed
 
-    async def analyze(
-        self,
-        ticker: str,
-        period: str = "Q1",
-        limit: int = 4,
-        report_period_gte: Optional[str] = None,
-        report_period_lte: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        return prompt
+
+    async def analyze_statements_with_llm(self) -> ChatCompletionResponse:
         """
-        Analyze a company's financial statements using available tools and provide trading recommendations.
+        Analyze trends using the LLM.
         """
-        # Fetch financial statements
-        statements = self.financial_client.fetch_financial_statements(
-            ticker=ticker,
-            period=period,
-            limit=limit,
-            report_period_gte=report_period_gte,
-            report_period_lte=report_period_lte,
-        )
+        # Implementation here
+        prompt = await self._prompt_for_financial_statements()  
 
-        # Use tools to analyze the data
-        metrics = self._use_tools(statements)
-        
-        # Generate analysis prompt with calculated metrics
-        prompt = self._generate_analysis_prompt(ticker, statements, metrics)
-        
-        # Get AI analysis
-        analysis = await self._get_ai_analysis(prompt)
-        
-        return {
-            "analysis": analysis,
-            "metrics": metrics,
-            "raw_data": statements.model_dump()
-        }
-
-    def _use_tools(self, statements: CompanyFinancialStatementsResponse) -> Dict[str, Any]:
-        """Use available tools to analyze the financial statements."""
-        if not statements.financials.income_statements or not statements.financials.balance_sheets:
-            return {}
-
-        latest_income = statements.financials.income_statements[0]
-        latest_balance = statements.financials.balance_sheets[0]
-        latest_cash_flow = statements.financials.cash_flow_statements[0] if statements.financials.cash_flow_statements else None
-
-        # Use each tool to analyze relevant data
-        metrics = {
-            "liquidity": self.tools["liquidity"].execute(latest_balance),
-            "growth": self.tools["growth"].execute(statements.financials.income_statements),
-        }
-
-        # if latest_cash_flow:
-        #     metrics["cash_flow"] = self.tools["cash_flow"].execute(latest_cash_flow)
-
-        # metrics["growth"] = self.tools["growth"].execute(statements.financials.income_statements)
-
-        return metrics
-
-    def _generate_analysis_prompt(
-        self,
-        ticker: str,
-        statements: CompanyFinancialStatementsResponse,
-        metrics: Dict[str, Any]
-    ) -> str:
-        """Generate a detailed prompt for financial analysis."""
-        return f"""You are a professional financial analyst. Analyze the following financial data for {ticker} and provide a detailed trading recommendation.
-
-Financial Metrics:
-{metrics}
-
-Raw Financial Data:
-{statements.model_dump()}
-
-Please provide your analysis in the following format:
-1. Key Financial Metrics Analysis
-   - Profitability Metrics
-   - Liquidity Metrics
-   - Leverage Metrics
-   - Efficiency Metrics
-   - Cash Flow Metrics
-   - Growth Rates
-
-2. Growth Trends
-   - Revenue Growth
-   - Profit Growth
-   - Cash Flow Growth
-
-3. Financial Health Assessment
-   - Overall Financial Position
-   - Key Strengths
-   - Key Weaknesses
-
-4. Risk Factors
-   - Financial Risks
-   - Operational Risks
-   - Market Risks
-
-5. Trading Recommendation
-   - Buy/Hold/Sell with confidence level
-   - Price Target
-   - Time Horizon
-   - Key Catalysts
-
-6. Supporting Evidence
-   - Key Metrics Supporting the Recommendation
-   - Peer Comparison (if available)
-   - Industry Context
-
-Focus on:
-- Revenue growth and profitability trends
-- Debt levels and financial leverage
-- Cash flow generation and management
-- Working capital efficiency
-- Return on equity and assets
-- Market position and competitive advantages
-
-Provide specific numbers and metrics to support your analysis."""
-
-    async def _get_ai_analysis(self, prompt: str) -> Dict[str, Any]:
-        """Get AI analysis using Claude."""
-        request = ChatCompletionRequest(
-            model="claude-3-sonnet-20240229",
+        analyze_statements_request = ChatCompletionRequest(
+            model="claude-sonnet-4-20250514",
             messages=[
-                ChatMessage(role="user", content=prompt)
-            ],
+                ChatMessage(role="user", content=f"{prompt}")],
             temperature=0.7,
-            max_tokens=4000
+            max_tokens=32000
         )
-        
-        print(f"Sending request to Anthropic")
-        response = await self.anthropic_client.chat_complete(request)
-        print(f"Received response from Anthropic")
-        return {
-            "analysis": response.content[0]["text"],
-            "model": response.model,
-            "stop_reason": response.stop_reason
-        }
 
+
+        chat_response = await self.anthropic_client.chat_complete(analyze_statements_request)
+
+        print(f"TYPE: {type(chat_response)}")
+
+        return chat_response
+
+    
+
+if __name__ == "__main__":
+    # Example usage
+    # build our clients first
+    financial_client = FinancialDatasetsClient(
+        CONFIG.financial_datasets_api_key,
+        CONFIG.financial_datasets_api_url,
+    )
+
+    anthropic_client = AnthropicClient(
+        anthropic_api_key=CONFIG.anthropic_api_key,
+        anthropic_api_url=CONFIG.anthropic_api_url,
+        )
+
+    fin_statements_request = CompanyFinancialStatementsRequest(
+        ticker="AAPL",
+        period="quarterly",
+        limit=4,
+    )
+
+    # instantiate the agent with keyword args
+    agent = FinancialStatementsAgent(
+        financial_client=financial_client,
+        anthropic_client=anthropic_client,
+        fin_statements_request=fin_statements_request,
+    )
+
+
+
+
+    analysis = asyncio.run(agent.analyze_statements_with_llm(fin_statements_request))
+    print(analysis)
+
+
+    

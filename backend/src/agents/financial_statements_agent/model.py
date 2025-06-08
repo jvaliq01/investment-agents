@@ -135,3 +135,11 @@ class FinancialStatementsResponse(BaseModel):
     class Config:
         extra = "ignore"
         validate_by_name = True
+    
+class CompanyFinancialStatementsRequest(BaseModel):
+    ticker: str
+    period: str
+    limit: int
+    report_period_gte: str
+    report_period_lte: str
+

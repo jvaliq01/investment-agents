@@ -65,11 +65,14 @@ class FinancialDatasetsClient:
             "ticker": ticker,
             "period": period,
             "limit": limit,
+            "period": "ttm",
         }
-        if report_period_gte:
-            params["report_period_gte"] = report_period_gte
-        if report_period_lte:
-            params["report_period_lte"] = report_period_lte
+        # if report_period_gte:
+        #     params["report_period_gte"] = report_period_gte
+        # if report_period_lte:
+        #     params["report_period_lte"] = report_period_lte
+        
+        print("I GER HERE")
 
         data = self._get("financials", params)
         return CompanyFinancialStatementsResponse.model_validate(data)
