@@ -5,7 +5,7 @@ from backend.exceptions import APIError, ValidationFailure
 import asyncio
 from backend.src.agents.company_news_agent.model import CompanyNewsResponse
 from backend.src.agents.financial_metrics_agent.model import FinancialMetricsRequest, FinancialMetricsResponse
-from backend.src.agents.financial_statements_agent.model import CompanyFinancialStatementsResponse
+from backend.src.agents.financial_statements_agent.model import FinancialStatementsResponse
 from backend.src.config import CONFIG
 
 class FinancialDatasetsClient:
@@ -60,7 +60,7 @@ class FinancialDatasetsClient:
         ticker: str,
         period: str,
         limit: int,
-    ) -> CompanyFinancialStatementsResponse:
+    ) -> FinancialStatementsResponse:
         params = {
             "ticker": ticker,
             "period": period,

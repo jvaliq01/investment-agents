@@ -31,6 +31,8 @@ class CompanyNewsAgent(BaseModel):
                 start_date=news_request.start_date,
                 end_date=news_request.end_date
             )
+
+            print("\nCOMPANY NEWS: ", company_news)
             
 
             print(f"NEWS: {company_news}")
@@ -49,7 +51,7 @@ class CompanyNewsAgent(BaseModel):
         """
         company_news_response = await self._get_company_news(self.company_news_request)
         if not company_news_response:
-            return "No financial metrics available."
+            return "No company news available"
 
         prompt = dedent(f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
         You are tasked with analyzing the recent news of a company and its impact on the financial metrics.
@@ -61,11 +63,8 @@ class CompanyNewsAgent(BaseModel):
 
 
         Here is the recent news:
-        {company_news_response}:
+        {company_news_response}
                     \n""")
-
-        
-
             # Add more metrics as needed
 
         return prompt
@@ -77,7 +76,7 @@ class CompanyNewsAgent(BaseModel):
         # Fetch prompt
         prompt = await self._prompt_for_company_metrics()
         if not prompt:
-            return "No financial metrics available."
+            return "No prompt available for analysis."
 
         # Implementation here
         analyze_news_request = ChatCompletionRequest(

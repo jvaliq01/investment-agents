@@ -1,13 +1,13 @@
 import os 
 import sys
 from dotenv import load_dotenv
-from backend.src.agents.financial_statements_agent.workflow import FinancialStatementsAgent
 from backend.src.client.fin_datasetsai import FinancialDatasetsClient
 from backend.src.client.anthropic_client import AnthropicClient
 from backend.src.config import CONFIG
 import asyncio
 from backend.src.agents.financial_metrics_agent.workflow import FinancialMetricsAgent
 from backend.src.agents.financial_metrics_agent.model import FinancialMetricsRequest, FinancialMetricsResponse
+
 from backend.src.agents.company_news_agent.workflow import CompanyNewsAgent
 from backend.src.agents.company_news_agent.model import CompanyNewsRequest, CompanyNewsResponse
 from backend.src.client.anthropic_client import ChatCompletionRequest, ChatMessage, ChatCompletionResponse, AnthropicClient
@@ -19,6 +19,9 @@ from threading import Thread
 from flask import Flask, render_template_string
 import markdown
 import socket
+
+from backend.src.agents.financial_statements_agent.model import FinancialStatementsRequest, FinancialStatementsResponse
+from backend.src.agents.financial_statements_agent.workflow_new import FinancialStatementsAgent
 
 load_dotenv()
 
@@ -427,7 +430,7 @@ async def master_orchestrator(
         report_period_gte=start_date,
         report_period_lte=end_date
     )
-    fin_statements_request = CompanyFinancialStatementsRequest(
+    financial_statements_request = FinancialStatementsRequest(
         ticker=ticker,
         period="quarterly",
         limit=4,
@@ -436,9 +439,9 @@ async def master_orchestrator(
     )
     company_news_request = CompanyNewsRequest(
         ticker=ticker,
-        limit=4,
-        start_date=start_date,
-        end_date=end_date
+        limit=10,
+        # start_date=start_date,
+        # end_date=end_date
     )
 
     ## REQUEST OBJECTS ##
@@ -459,6 +462,7 @@ async def master_orchestrator(
         anthropic_client=anthropic_client,
         company_news_request=company_news_request,
     )
+
 
     print(f"📊 FINANCIAL STATEMENTS REQUEST: {fin_statements_request}")
 
@@ -493,6 +497,7 @@ async def master_orchestrator(
     
     Format your response in markdown with clear sections."""
 
+
     investment_recommendation_request = ChatCompletionRequest(
         model="claude-sonnet-4-20250514",
         messages=[ChatMessage(role="user", content=investment_recommendation_prompt)],
@@ -502,6 +507,7 @@ async def master_orchestrator(
 
     investment_recommendation = await anthropic_client.chat_complete(investment_recommendation_request)
     print(f"✅ INVESTMENT RECOMMENDATION: {investment_recommendation}")
+
 
     if serve_web:
         # Create Flask app with the analysis results
@@ -539,7 +545,7 @@ async def master_orchestrator(
     else:
         return "Analysis complete - web serving disabled"
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     # Example usage
     ticker = "AAPL"
     start_date = "2020-01-01"
