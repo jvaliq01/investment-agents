@@ -11,7 +11,7 @@ from backend.src.agents.financial_metrics_agent.model import FinancialMetricsReq
 from backend.src.agents.company_news_agent.workflow import CompanyNewsAgent
 from backend.src.agents.company_news_agent.model import CompanyNewsRequest, CompanyNewsResponse
 from backend.src.client.anthropic_client import ChatCompletionRequest, ChatMessage, ChatCompletionResponse, AnthropicClient
-from backend.src.agents.financial_statements_agent.model import CompanyFinancialStatementsRequest
+from backend.src.agents.financial_statements_agent.model import FinancialStatementsRequest
 
 # Web server imports
 import webbrowser
@@ -301,6 +301,13 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="analysis-section">
+                <div class="section-title">📈 Company News Analysis</div>
+                <div class="markdown-content">
+                    {{ company_news_html | safe }}
+                </div>
+            </div>
+
+            <div class="analysis-section">
                 <div class="section-title">🎯 Investment Recommendation</div>
                 <div class="markdown-content">
                     {{ investment_recommendation_html | safe }}
@@ -344,7 +351,7 @@ def extract_markdown_content(analysis_text):
     # Fallback to string conversion
     return str(analysis_text)
 
-def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, investment_recommendation):
+def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, company_news_analysis, investment_recommendation):
     """Create and configure Flask app with the analysis data."""
     app = Flask(__name__)
     
@@ -354,6 +361,7 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
             # Extract markdown content from analysis responses
             statements_markdown = extract_markdown_content(fin_statements_analysis)
             metrics_markdown = extract_markdown_content(fin_metrics_analysis)
+            company_news_markdown = extract_markdown_content(company_news_analysis)
             recommendation_markdown = extract_markdown_content(investment_recommendation)
             
             # Convert markdown to HTML
@@ -363,6 +371,10 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
             )
             fin_metrics_html = markdown.markdown(
                 metrics_markdown, 
+                extensions=['tables', 'fenced_code', 'codehilite']
+            )
+            company_news_html = markdown.markdown(
+                company_news_markdown, 
                 extensions=['tables', 'fenced_code', 'codehilite']
             )
             investment_recommendation_html = markdown.markdown(
@@ -377,6 +389,7 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
                 end_date=end_date,
                 fin_statements_html=fin_statements_html,
                 fin_metrics_html=fin_metrics_html,
+                company_news_html=company_news_html,
                 investment_recommendation_html=investment_recommendation_html
             )
         except Exception as e:
@@ -384,6 +397,7 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
             return render_template_string(
                 HTML_TEMPLATE.replace('{{ fin_statements_html | safe }}', error_html)
                             .replace('{{ fin_metrics_html | safe }}', error_html)
+                            .replace('{{ company_news_html | safe }}', error_html)
                             .replace('{{ investment_recommendation_html | safe }}', error_html),
                 ticker=ticker.upper(),
                 start_date=start_date,
@@ -412,7 +426,7 @@ async def master_orchestrator(
     print(f"🚀 Starting financial analysis for {ticker.upper()}")
     print(f"📅 Period: {start_date} to {end_date}")
     
-    # Initialize clients
+    ## INITIALIZE CLIENTS ##
     financial_client = FinancialDatasetsClient(
         api_key=CONFIG.financial_datasets_api_key,
         base_url=CONFIG.financial_datasets_api_url,
@@ -422,7 +436,7 @@ async def master_orchestrator(
         anthropic_api_url=CONFIG.anthropic_api_url,
     )
 
-    # Create the request objects
+    ## REQUEST OBJECTS ##
     fin_metrics_request = FinancialMetricsRequest(
         ticker=ticker,
         period="quarterly",
@@ -430,10 +444,10 @@ async def master_orchestrator(
         report_period_gte=start_date,
         report_period_lte=end_date
     )
-    financial_statements_request = FinancialStatementsRequest(
+    fin_statements_request = FinancialStatementsRequest(
         ticker=ticker,
         period="quarterly",
-        limit=4,
+        limit=8,
         report_period_gte=start_date,
         report_period_lte=end_date
     )
@@ -444,7 +458,7 @@ async def master_orchestrator(
         # end_date=end_date
     )
 
-    ## REQUEST OBJECTS ##
+    ## AGENT OBJECTS ##
     fin_metrics_agent = FinancialMetricsAgent(
         financial_client=financial_client,
         anthropic_client=anthropic_client,
@@ -467,15 +481,16 @@ async def master_orchestrator(
     print(f"📊 FINANCIAL STATEMENTS REQUEST: {fin_statements_request}")
 
     # Run analyses
-    fin_statements_analysis, fin_metrics_analysis  = await asyncio.gather(
+    fin_statements_analysis, fin_metrics_analysis, company_news_analysis = await asyncio.gather(
         fin_statements_agent.analyze_statements_with_llm(),
         fin_metrics_agent.analyze_metrics_with_llm(),
+        company_news_agent.analyze_news_with_llm()
     )
     # fin_news_analysis = await company_news_agent.analyze_metrics_with_llm()
     
     print(f"✅ FINANCIAL STATEMENTS ANALYSIS: {fin_statements_analysis}")
     print(f"✅ FINANCIAL METRICS ANALYSIS: {fin_metrics_analysis}")
-    # print(f"✅ COMPANY NEWS ANALYSIS: {fin_news_analysis}")
+    print(f"✅ COMPANY NEWS ANALYSIS: {company_news_analysis}")
     
     # Create a final investment recommendation that combines all analyses
     investment_recommendation_prompt = f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
@@ -486,6 +501,9 @@ async def master_orchestrator(
     
     FINANCIAL METRICS ANALYSIS:
     {fin_metrics_analysis}
+
+    COMPANY NEWS ANALYSIS:
+    {company_news_analysis}
     
     
     Please provide:
@@ -511,7 +529,7 @@ async def master_orchestrator(
 
     if serve_web:
         # Create Flask app with the analysis results
-        app = create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, investment_recommendation)
+        app = create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, company_news_analysis, investment_recommendation)
         
         # Find a free port and start the server
         port = find_free_port()

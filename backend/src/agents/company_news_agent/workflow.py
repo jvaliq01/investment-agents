@@ -56,10 +56,10 @@ class CompanyNewsAgent(BaseModel):
         prompt = dedent(f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
         You are tasked with analyzing the recent news of a company and its impact on the financial metrics.
         You are given the following financial metrics:
-        - Ticker: {company_news_request.ticker}
-        - Start Date: {company_news_request.start_date}
-        - End Date: {company_news_request.end_date}
-        - Limit: {company_news_request.limit}'
+        - Ticker: {self.company_news_request.ticker}
+        - Start Date: {self.company_news_request.start_date}
+        - End Date: {self.company_news_request.end_date}
+        - Limit: {self.company_news_request.limit}'
 
 
         Here is the recent news:
@@ -69,7 +69,7 @@ class CompanyNewsAgent(BaseModel):
 
         return prompt
 
-    async def analyze_metrics_with_llm(self) -> ChatCompletionResponse:
+    async def analyze_news_with_llm(self) -> ChatCompletionResponse:
         """
         Analyze trends using the LLM.
         """

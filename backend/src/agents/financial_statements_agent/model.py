@@ -136,7 +136,7 @@ class FinancialStatementsResponse(BaseModel):
         extra = "ignore"
         validate_by_name = True
     
-class CompanyFinancialStatementsRequest(BaseModel):
+class FinancialStatementsRequest(BaseModel):
     ticker: str
     period: str
     limit: int

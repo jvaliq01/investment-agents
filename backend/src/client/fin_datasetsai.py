@@ -5,7 +5,7 @@ from backend.exceptions import APIError, ValidationFailure
 import asyncio
 from backend.src.agents.company_news_agent.model import CompanyNewsResponse
 from backend.src.agents.financial_metrics_agent.model import FinancialMetricsRequest, FinancialMetricsResponse
-from backend.src.agents.financial_statements_agent.model import FinancialStatementsResponse
+from backend.src.agents.financial_statements_agent.model import FinancialStatementsRequest, FinancialStatementsResponse
 from backend.src.config import CONFIG
 
 class FinancialDatasetsClient:
@@ -57,15 +57,15 @@ class FinancialDatasetsClient:
 
     def fetch_financial_statements(
         self,
-        ticker: str,
-        period: str,
-        limit: int,
+        request: FinancialStatementsRequest,
     ) -> FinancialStatementsResponse:
         params = {
-            "ticker": ticker,
-            "period": period,
-            "limit": limit,
-            "period": "ttm",
+            "ticker": request.ticker,
+            "period": request.period,
+            "limit": request.limit,
+            "period": request.period,
+            "report_period_gte": request.report_period_gte,
+            "report_period_lte": request.report_period_lte,
         }
         # if report_period_gte:
         #     params["report_period_gte"] = report_period_gte
@@ -75,7 +75,7 @@ class FinancialDatasetsClient:
         print("I GER HERE")
 
         data = self._get("financials", params)
-        return CompanyFinancialStatementsResponse.model_validate(data)
+        return FinancialStatementsResponse.model_validate(data)
 
     def fetch_company_news(
         self, ticker: str, 
