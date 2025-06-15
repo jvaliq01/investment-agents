@@ -8,9 +8,11 @@ import asyncio
 from backend.src.agents.financial_metrics_agent.workflow import FinancialMetricsAgent
 from backend.src.agents.financial_metrics_agent.model import FinancialMetricsRequest, FinancialMetricsResponse
 
-from backend.src.agents.company_news_agent.workflow import CompanyNewsAgent
-from backend.src.agents.company_news_agent.model import CompanyNewsRequest, CompanyNewsResponse
+# from backend.src.agents.company_news_agent.workflow import CompanyNewsAgent
+# from backend.src.agents.company_news_agent.model import CompanyNewsRequest, CompanyNewsResponse
 from backend.src.client.anthropic_client import ChatCompletionRequest, ChatMessage, ChatCompletionResponse, AnthropicClient
+from backend.src.client.oai.responses import OpenAIClient
+from backend.src.agents.websearch_agent.workflow import WebSearchAgent
 from backend.src.agents.financial_statements_agent.model import FinancialStatementsRequest
 
 # Web server imports
@@ -301,9 +303,9 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="analysis-section">
-                <div class="section-title">📈 Company News Analysis</div>
+                <div class="section-title">📈 Web Search Analysis</div>
                 <div class="markdown-content">
-                    {{ company_news_html | safe }}
+                    {{ web_search_html | safe }}
                 </div>
             </div>
 
@@ -351,7 +353,7 @@ def extract_markdown_content(analysis_text):
     # Fallback to string conversion
     return str(analysis_text)
 
-def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, company_news_analysis, investment_recommendation):
+def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, web_search_analysis, investment_recommendation):
     """Create and configure Flask app with the analysis data."""
     app = Flask(__name__)
     
@@ -361,7 +363,8 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
             # Extract markdown content from analysis responses
             statements_markdown = extract_markdown_content(fin_statements_analysis)
             metrics_markdown = extract_markdown_content(fin_metrics_analysis)
-            company_news_markdown = extract_markdown_content(company_news_analysis)
+            # company_news_markdown = extract_markdown_content(company_news_analysis)
+            web_search_markdown = extract_markdown_content(web_search_analysis)
             recommendation_markdown = extract_markdown_content(investment_recommendation)
             
             # Convert markdown to HTML
@@ -373,8 +376,12 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
                 metrics_markdown, 
                 extensions=['tables', 'fenced_code', 'codehilite']
             )
-            company_news_html = markdown.markdown(
-                company_news_markdown, 
+            # company_news_html = markdown.markdown(
+            #     company_news_markdown, 
+            #     extensions=['tables', 'fenced_code', 'codehilite']
+            # )
+            web_search_html = markdown.markdown(
+                web_search_markdown, 
                 extensions=['tables', 'fenced_code', 'codehilite']
             )
             investment_recommendation_html = markdown.markdown(
@@ -389,7 +396,8 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
                 end_date=end_date,
                 fin_statements_html=fin_statements_html,
                 fin_metrics_html=fin_metrics_html,
-                company_news_html=company_news_html,
+                # company_news_html=company_news_html,
+                web_search_html=web_search_html,
                 investment_recommendation_html=investment_recommendation_html
             )
         except Exception as e:
@@ -397,7 +405,8 @@ def create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_
             return render_template_string(
                 HTML_TEMPLATE.replace('{{ fin_statements_html | safe }}', error_html)
                             .replace('{{ fin_metrics_html | safe }}', error_html)
-                            .replace('{{ company_news_html | safe }}', error_html)
+                            # .replace('{{ company_news_html | safe }}', error_html)
+                            .replace('{{ web_search_html | safe }}', error_html)
                             .replace('{{ investment_recommendation_html | safe }}', error_html),
                 ticker=ticker.upper(),
                 start_date=start_date,
@@ -435,6 +444,12 @@ async def master_orchestrator(
         anthropic_api_key=CONFIG.anthropic_api_key,
         anthropic_api_url=CONFIG.anthropic_api_url,
     )
+    openai_client = OpenAIClient(
+        api_key=CONFIG.openai_api_key,
+        base_url=CONFIG.openai_api_url,
+        timeout=CONFIG.timeout,
+        max_retries=CONFIG.max_retries
+    )
 
     ## REQUEST OBJECTS ##
     fin_metrics_request = FinancialMetricsRequest(
@@ -451,12 +466,12 @@ async def master_orchestrator(
         report_period_gte=start_date,
         report_period_lte=end_date
     )
-    company_news_request = CompanyNewsRequest(
-        ticker=ticker,
-        limit=10,
-        # start_date=start_date,
-        # end_date=end_date
-    )
+    # company_news_request = CompanyNewsRequest(
+    #     ticker=ticker,
+    #     limit=10,
+    #     # start_date=start_date,
+    #     # end_date=end_date
+    # )
 
     ## AGENT OBJECTS ##
     fin_metrics_agent = FinancialMetricsAgent(
@@ -471,26 +486,36 @@ async def master_orchestrator(
         fin_statements_request=fin_statements_request,
     )
 
-    company_news_agent = CompanyNewsAgent(
-        financial_client=financial_client,
-        anthropic_client=anthropic_client,
-        company_news_request=company_news_request,
+    # company_news_agent = CompanyNewsAgent(
+    #     financial_client=financial_client,
+    #     anthropic_client=anthropic_client,
+    #     company_news_request=company_news_request,
+    # )
+
+    web_search_agent = WebSearchAgent(
+        openai_client=openai_client,
+        ticker=ticker,  
     )
 
 
     print(f"📊 FINANCIAL STATEMENTS REQUEST: {fin_statements_request}")
 
     # Run analyses
-    fin_statements_analysis, fin_metrics_analysis, company_news_analysis = await asyncio.gather(
+    fin_statements_analysis, fin_metrics_analysis, web_search_analysis = await asyncio.gather(
         fin_statements_agent.analyze_statements_with_llm(),
         fin_metrics_agent.analyze_metrics_with_llm(),
-        company_news_agent.analyze_news_with_llm()
+        # company_news_agent.analyze_news_with_llm()
+        web_search_agent.analyze_web_with_llm()
+
+
+
     )
     # fin_news_analysis = await company_news_agent.analyze_metrics_with_llm()
     
     print(f"✅ FINANCIAL STATEMENTS ANALYSIS: {fin_statements_analysis}")
     print(f"✅ FINANCIAL METRICS ANALYSIS: {fin_metrics_analysis}")
-    print(f"✅ COMPANY NEWS ANALYSIS: {company_news_analysis}")
+    # print(f"✅ COMPANY NEWS ANALYSIS: {company_news_analysis}")
+    print(f"✅ WEB SEARCH ANALYSIS: {web_search_analysis}")
     
     # Create a final investment recommendation that combines all analyses
     investment_recommendation_prompt = f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
@@ -502,8 +527,8 @@ async def master_orchestrator(
     FINANCIAL METRICS ANALYSIS:
     {fin_metrics_analysis}
 
-    COMPANY NEWS ANALYSIS:
-    {company_news_analysis}
+    WEB SEARCH ANALYSIS:
+    {web_search_analysis}
     
     
     Please provide:
@@ -529,7 +554,7 @@ async def master_orchestrator(
 
     if serve_web:
         # Create Flask app with the analysis results
-        app = create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, company_news_analysis, investment_recommendation)
+        app = create_flask_app(ticker, start_date, end_date, fin_statements_analysis, fin_metrics_analysis, web_search_analysis, investment_recommendation)
         
         # Find a free port and start the server
         port = find_free_port()

@@ -6,3 +6,4 @@ rich==13.6.0
 dedent==0.5
 Flask==3.1.0
 markdown==3.8
+openai==1.86.0

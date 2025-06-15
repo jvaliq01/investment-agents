@@ -13,41 +13,11 @@ DEFAULT_TIMEOUT = 120.0  # Increased from 30.0 to 120.0 seconds
 ANTHROPIC_API_VERSION = "2023-06-01"  # Updated to a recent version
 MAX_RETRIES = 3  # Maximum number of retry attempts
 
-# --------------------
-# Pydantic Models
-# --------------------
-
-# class BaseRequest(BaseModel):
-#     model: str = Field(..., description="Model name, e.g. 'claude-3-opus-20240229'")
-
-# class CompleteRequest(BaseRequest):
-#     prompt: str = Field(..., description="The prompt string to be completed")
-#     max_tokens_to_sample: int = Field(256, ge=1, description="Max tokens to generate")
-#     temperature: float = Field(1.0, ge=0.0, le=1.0)
-#     top_k: Optional[int] = Field(None, ge=0)
-#     top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
-#     stop_sequences: Optional[List[str]] = Field(None, description="List of stop sequences")
-#     stream: bool = Field(False, description="Whether to stream response chunks")
-
-#     @field_validator("stop_sequences")
-#     @classmethod
-#     def _validate_stop_sequences(cls, v):
-#         if v is not None and not isinstance(v, list):
-#             raise ValueError("stop_sequences must be a list of strings")
-#         return v
-
-# class CompleteResponse(BaseModel):
-#     completion: str = Field(..., description="Generated text completion")
-#     stop_reason: Optional[str] = Field(None, description="Why the generation stopped")
-#     model: str = Field(..., description="Model that produced this response")
-
-
 ALLOWABLE_ROLES = ["user", "assistant"]
 # Custom validator to check role
 def validate_role(role: str) -> str:
     if role not in ALLOWABLE_ROLES:
         raise ValueError(f"Role must be one of {ALLOWABLE_ROLES}")
-    return role
 
 class ChatMessage(BaseModel):
     role: str = Field(..., description="Role of the message: 'user' or 'assistant'")
@@ -68,7 +38,7 @@ class ChatCompletionResponse(BaseModel):
     id: str = Field(...)
     type: str = Field(...)
     role: str = Field(...)
-    content: List[Dict[str, str]] = Field(...)  # Changed to List[Dict] to match Anthropic's response format
+    content: List[Dict[str, str]] = Field(...)  
     model: str = Field(...)
     stop_reason: Optional[str] = None
     stop_sequence: Optional[str] = None
@@ -100,7 +70,7 @@ class AnthropicClient(BaseModel):
         """
         Perform a chat completion call using the messages API.
         """
-        client = Anthropic(
+        client = AsyncAnthropic(
             api_key=self.anthropic_api_key,
             base_url=self.anthropic_api_url,
             timeout=self.timeout,
@@ -115,7 +85,7 @@ class AnthropicClient(BaseModel):
         print(f"Payload for chat_complete: {json.dumps(payload, indent=2)}")
 
         try:
-            result = client.messages.create(**payload)
+            result = await client.messages.create(**payload)
         except Exception as e:
             print(f"Error in chat_complete: {e}")
             return None 
