@@ -47,14 +47,22 @@ class FinancialMetricsAgent(BaseModel):
             return "No financial metrics available."
 
         prompt = dedent(f"""You are an expert financial analyst with a Chartered Financial Analyst (CFA) designation.
-        You are tasked with analyzing the financial metrics of a company.
-        You are given the following financial metrics:
-        - Ticker: {self.fin_metrics_request.ticker}
-        - Period: {self.fin_metrics_request.period}
-        - Limit: {self.fin_metrics_request.limit}'
+You are tasked with analyzing the financial metrics of a company.
+You are given the following financial metrics:
+- Ticker: {self.fin_metrics_request.ticker}
+- Period: {self.fin_metrics_request.period}
+- Limit: {self.fin_metrics_request.limit}'
 
-        You are to analyze the following financial metrics:
-        {metrics}:
+You are to analyze the following financial metrics:
+{metrics}:
+
+
+
+**DO NOT**:
+- Give a recommendation on whether to buy, sell, or hold the stock. This will be done by another agent in the workflow.
+**DO**:
+- Provide an analysis of the financial metrics, including trends, patterns, and any significant changes over the specified period.
+- Focus more on trends and patterns seen in more current time periods, rather than historical data.
                     \n""")
         # Add more metrics as needed
 
