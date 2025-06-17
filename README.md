@@ -23,6 +23,11 @@ pip install -r requirements.txt --no-cache
 python backend/src/agents/orchestration.py
 ```
 
+## .env Notes
+- Set up you .env file under the backend folder, just like the .env.example file 
+- You must obtain both and Anthropic and OpenAI API key to run 
+- The financial datasets api key is provided. However, we can only collect data on AAPL currently
+
 ## Front-End Agent Panel Description 
 - Top Left - Financial Metrics Analysis 
 - Top Right - Financial Statements Analysis
