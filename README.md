@@ -10,16 +10,19 @@ We're exploring how well LLMs can make trading decisions using fundamental finan
 In your terminal:
 
 ```bash
-# 1. Create a virtual environment
+# 1. Establish the path of your environment for relative imports 
+export PYTHONPATH=$PWD
+
+# 2. Create a virtual environment
 python3 -m venv venv
 
-# 2. Activate the virtual environment
+# 3. Activate the virtual environment
 source venv/bin/activate
 
-# 3. Install the requirements
+# 4. Install the requirements
 pip install -r requirements.txt --no-cache
 
-# 4. Run the backend
+# 5. Run the backend
 python backend/src/agents/orchestration.py
 ```
 
