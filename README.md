@@ -24,10 +24,11 @@ python backend/src/agents/orchestration.py
 ```
 
 ## Front-End Agent Panel Description 
-Top Left - Financial Metrics Analysis 
-Top Right - Financial Statements Analysis
-Bottom Left - Web Search Analysis 
-Bottom Right - Investment Recommendation 
+- Top Left - Financial Metrics Analysis 
+- Top Right - Financial Statements Analysis
+- Bottom Left - Web Search Analysis 
+- Bottom Right - Investment Recommendation 
+
 
 A lot to come in the future. Excited to see where this goes!!
 
