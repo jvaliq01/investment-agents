@@ -1,4 +1,4 @@
-from backend.src.client.oai.model import OpenAIRequest
+from backend.src.client.oai.model.request_model import OpenAIRequest
 from backend.src.config import CONFIG
 from pydantic import BaseModel
 from openai import OpenAI, AsyncOpenAI
@@ -34,6 +34,18 @@ class OpenAIClient(BaseModel):
             return None
 
         return response
+    
+
+
+# Needs more work !!!!!!!!!!!
+
+class TextInputResponse(BaseModel):
+    id: str
+    object: str = "response"
+    created_at: int
+    background: bool | None = None
+
+     
 
 
 

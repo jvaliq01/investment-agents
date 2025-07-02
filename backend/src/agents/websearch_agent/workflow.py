@@ -1,7 +1,7 @@
 from openai import OpenAI
 import os
 from backend.src.config import CONFIG
-from backend.src.client.oai.model import OpenAIRequest
+from backend.src.client.oai.model.request_model import OpenAIRequest
 from backend.src.client.oai.responses import OpenAIClient
 import asyncio
 from pydantic import BaseModel, Field
