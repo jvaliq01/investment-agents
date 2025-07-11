@@ -17,7 +17,7 @@ class OpenAIClient(BaseModel):
     timeout: Optional[float] = CONFIG.timeout
     max_retries: Optional[int] = CONFIG.max_retries
 
-    async def create_responses_completion(self, request: OpenAIRequest) -> Optional[OpenAIResponse]:
+    async def create_responses_completion(self, request: OpenAIRequest) -> OpenAIResponse:
         client = AsyncOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -40,7 +40,33 @@ class OpenAIClient(BaseModel):
         # validate the response
         validated_response = OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
 
+
+
         return validated_response
+    
+
+    async def run_oai_responses_request(
+        self,
+        request: OpenAIRequest,
+    ) -> str | None:
+        try:
+            response: OpenAIResponse = await self.create_responses_completion(request)
+            validated_response = OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
+        except Exception as e:
+            print(f"Error during OpenAI request: {e}")
+            return None
+        
+        if validated_response.output[0].type == "message":
+            output_text: str = validated_response.output[0].content[0].text
+
+        elif validated_response.output[0].type == "web_search_call":
+            output_text: str = validated_response.output[1].content[0].text
+
+        if not output_text:
+            print("No output text found in the response.")
+            return None
+
+        return output_text.strip()
     
 
 

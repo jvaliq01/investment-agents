@@ -27,10 +27,9 @@ async def main():
         model="gpt-4o",
     )
 
+    response: str = await openai_client.run_oai_responses_request(request)
 
-
-    response: OpenAIResponse = await openai_client.create_responses_completion(request)
-    print(response)
+    print(f"Response From OpenAI Test:\n{response}")
 
 
 if __name__ == "__main__":
