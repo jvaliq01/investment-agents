@@ -1,11 +1,12 @@
 from backend.src.client.oai.model.request_model import OpenAIRequest
+from backend.src.client.oai.model.response_model import OpenAIResponse
 from backend.src.config import CONFIG
 from pydantic import BaseModel
 from openai import OpenAI, AsyncOpenAI
 import asyncio
 from typing import Literal
 from typing import Optional
-
+import json
 
 
 
@@ -16,7 +17,7 @@ class OpenAIClient(BaseModel):
     timeout: Optional[float] = CONFIG.timeout
     max_retries: Optional[int] = CONFIG.max_retries
 
-    async def create_responses_completion(self, request: OpenAIRequest) -> any:
+    async def create_responses_completion(self, request: OpenAIRequest) -> Optional[OpenAIResponse]:
         client = AsyncOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -24,16 +25,22 @@ class OpenAIClient(BaseModel):
             max_retries=self.max_retries
         )
 
+
+        pretty = json.dumps(request.model_dump(exclude_none=True), indent=2, sort_keys=True)
+        print(f"Payload for create_responses_completion:\n{pretty}")
+
         payload = request.model_dump(exclude_none=True)
-        print(f"Payload for create_responses_completion: {payload}")
 
         try:
             response = await client.responses.create(**payload)
         except Exception as e:
             print(f"Error in create_responses_completion: {e}")
             return None
+        
+        # validate the response
+        validated_response = OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
 
-        return response
+        return validated_response
     
 
 

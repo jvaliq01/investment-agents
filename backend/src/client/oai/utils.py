@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
+import uuid
 
 
 
 
-def generate_id(prefix: str | None = None) -> None:
+def generate_id(prefix: str | None = None) -> str:
     """
     UTC-timestamped, collision-safe ID, e.g.:
     >>> generate_id("resp")
@@ -12,5 +13,8 @@ def generate_id(prefix: str | None = None) -> None:
     core = uuid.uuid4().hex 
     return f"{prefix}_{core}" if prefix else core
 
-def gen_cur_timestamp() -> None:
+def gen_cur_timestamp() -> str:
     return datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+
+def find_model_in_str
+
