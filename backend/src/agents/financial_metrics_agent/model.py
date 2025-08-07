@@ -17,9 +17,9 @@ type PeriodTypes = Literal["annual", "quarterly", "ttm"]
 class FinancialMetricsRequest(BaseModel):
     ticker: str
     limit: Optional[int] = None
-    report_period_gte: Optional[datetime] = None
-    report_period_lte: Optional[datetime] = None
-    period: PeriodTypes = None
+    report_period_gte: Optional[str] = None
+    report_period_lte: Optional[str] = None
+    period: Optional[PeriodTypes] = "quarterly"
 
 ## Response Model ##
 

@@ -12,8 +12,8 @@ class CompanyNewsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ticker: str
     limit: int | None = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 ## Response Model ##
 class CompanyNewsReponse(BaseModel):
@@ -26,6 +26,7 @@ class CompanyNewsReponse(BaseModel):
     url: str
     image_url: HttpUrl | None
     sentiment: str | None
+
 
 class CompanyNewsResponse(BaseModel):
     news: List[CompanyNewsReponse]

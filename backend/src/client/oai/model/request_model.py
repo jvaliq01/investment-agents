@@ -37,16 +37,16 @@ class FormatType(str, Enum):
 
 
 class _TextFormat(BaseModel):
-    type: FormatType = Field(default=FormatType.text, Literal=True)
+    type: FormatType = Field(default=FormatType.text)
 
 
 class _JsonObjFormat(BaseModel):
-    type: FormatType = Field(default=FormatType.json_object, Literal=True)
+    type: FormatType = Field(default=FormatType.json_object)
 
 
 class _JsonSchFormat(BaseModel):
-    type: FormatType = Field(default=FormatType.json_schema, Literal=True)
-    schema: Dict[str, Any]    
+    type: FormatType = Field(default=FormatType.json_schema)
+    json_schema: Dict[str, Any]    
 
 
 Format = Union[_TextFormat, _JsonObjFormat, _JsonSchFormat]
@@ -87,7 +87,7 @@ class FunctionToolChoice(BaseModel):
     Force the model to call a *specific function*
       { "type": "function", "name": "my_fn" }
     """
-    type: Literal["function"] = Field(default="function", Literal=True)
+    type: Literal["function"] ="function"
     name: str
 
 
@@ -98,7 +98,7 @@ ToolChoice = Union[ToolChoiceMode, HostedToolChoice, FunctionToolChoice]
 
 # ---------------------- TOOLS ----------------------
 class FunctionTool(BaseModel):
-    type: Literal["function"] = Field(default="function", Literal=True)
+    type: Literal["function"] = "function"
     name: str
     parameters: Dict[str, Any]            # JSON schema
     required: list[str]                    # spec “default true”
@@ -107,7 +107,7 @@ class FunctionTool(BaseModel):
 
 
 class FileSearchTool(BaseModel):
-    type: Literal["file_search"] = Field(default="file_search", Literal=True)
+    type: Literal["file_search"] = "file_search"
     vector_store_ids: List[str]
     filters: Optional[Dict[str, Any]] = None
     max_num_results: Optional[int] = Field(default=None, ge=1, le=50)
@@ -119,14 +119,14 @@ class WebSearchType(str, Enum):
     current = "web_search_preview_2025_03_11"
 
 
-class WebSearchPreviewTool(BaseModel):
+class WebSearchTool(BaseModel):
     type: WebSearchType
     search_context_size: Optional[Literal["low", "medium", "high"]] = "medium"
     user_location: Optional[Dict[str, Any]] = None
 
 
 class ComputerUsePreviewTool(BaseModel):
-    type: Literal["computer_use_preview"] = Field(default="computer_use_preview", Literal=True)
+    type: Literal["computer_use_preview"] = "computer_use_preview"
     display_height: int
     display_width: int
     environment: str
@@ -138,7 +138,7 @@ class MCPRequireApproval(str, Enum):
 
 
 class MCPTool(BaseModel):
-    type: Literal["mcp"] = Field(default="mcp", Literal=True)
+    type: Literal["mcp"] = "mcp"
     server_label: str
     server_url: str
     allowed_tools: Optional[Union[List[str], Dict[str, Any]]] = None
@@ -147,7 +147,7 @@ class MCPTool(BaseModel):
 
 
 class CodeInterpreterTool(BaseModel):
-    type: Literal["code_interpreter"] = Field(default="code_interpreter", Literal=True)
+    type: Literal["code_interpreter"] = "code_interpreter"
     # container can be a string ID or an object with file-ids, etc.
     container: Union[str, Dict[str, Any]]
 
@@ -179,7 +179,7 @@ class ImageSize(str, Enum):
 
 
 class ImageGenerationTool(BaseModel):
-    type: Literal["image_generation"] = Field(default="image_generation", Literal=True)
+    type: Literal["image_generation"] ="image_generation"
     background: ImageBackground = ImageBackground.auto
     input_image_mask: Optional[Dict[str, Any]] = None
     model: str = "gpt-image-1"
@@ -192,13 +192,13 @@ class ImageGenerationTool(BaseModel):
 
 
 class LocalShellTool(BaseModel):
-    type: Literal["local_shell"] = Field(default="local_shell", Literal=True)
+    type: Literal["local_shell"] = "local_shell"
 
 
 Tool = Union[
     FunctionTool,
     FileSearchTool,
-    WebSearchPreviewTool,
+    WebSearchTool,
     ComputerUsePreviewTool,
     MCPTool,
     CodeInterpreterTool,

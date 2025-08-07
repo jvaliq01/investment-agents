@@ -1,9 +1,12 @@
+from datetime import date
+from tracemalloc import start
 import requests
 from typing import Any, Dict, List, Optional
 from pydantic import ValidationError
 from backend.exceptions import APIError, ValidationFailure
 import asyncio
 from backend.src.agents.company_news_agent.model import CompanyNewsResponse
+from backend.src.agents.candles_agent.model import CompanyCandlesResponse
 from backend.src.agents.financial_metrics_agent.model import FinancialMetricsRequest, FinancialMetricsResponse
 from backend.src.agents.financial_statements_agent.model import FinancialStatementsRequest, FinancialStatementsResponse
 from backend.src.config import CONFIG
@@ -14,17 +17,14 @@ class FinancialDatasetsClient:
         self.headers = {}
         self.headers["X-API-KEY"] = api_key
 
-    def _get(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        print("\nPARAMS: ", params)
+    async def _get(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.base_url}/{endpoint}"
-        print("\nURL: ", url)
         resp = requests.get(url, headers=self.headers, params=params)
-        print("\nRESPONSE: ", resp.json())
         if resp.status_code != 200:
             raise APIError(f"{resp.status_code} {resp.text}")
         return resp.json()
 
-    def fetch_financial_metrics(
+    async def fetch_financial_metrics(
         self, 
         fin_metrics_request: FinancialMetricsRequest
     ) -> FinancialMetricsResponse:
@@ -34,7 +34,7 @@ class FinancialDatasetsClient:
         report_period_gte = fin_metrics_request.report_period_gte
         report_period_lte = fin_metrics_request.report_period_lte
 
-        data = self._get(
+        data = await self._get(
             "financial-metrics",
             {"ticker": ticker, "period": period, "limit": limit, "report_period_gte": report_period_gte, "report_period_lte": report_period_lte},
         )
@@ -55,7 +55,7 @@ class FinancialDatasetsClient:
 
         return FinancialMetricsResponse(metrics=valid)
 
-    def fetch_financial_statements(
+    async def fetch_financial_statements(
         self,
         request: FinancialStatementsRequest,
     ) -> FinancialStatementsResponse:
@@ -72,12 +72,11 @@ class FinancialDatasetsClient:
         # if report_period_lte:
         #     params["report_period_lte"] = report_period_lte
         
-        print("I GER HERE")
 
-        data = self._get("financials", params)
+        data = await self._get("financials", params)
         return FinancialStatementsResponse.model_validate(data)
 
-    def fetch_company_news(
+    async def fetch_company_news(
         self, ticker: str, 
         limit: Optional[int] = None, 
         start_date: Optional[str] = None, 
@@ -93,19 +92,39 @@ class FinancialDatasetsClient:
         if not data:
             raise APIError("No news found")
         return CompanyNewsResponse.model_validate(data)
+    
+    async def fetch_price_data(
+        self,
+        ticker: str,
+    ):
+        params = {
+            "ticker": ticker,
+            "interval": "daily",
+            "interval_multiplier": 1,
+            "start_date": date.today().isoformat()
+        }
+        data = await self._get("prices", params)
+        if not data:
+            raise APIError("No price data found")
+        return CompanyCandlesResponse.model_validate(data)
 
 async def run_fetch_all_data():
     client = FinancialDatasetsClient(
         api_key=CONFIG.financial_datasets_api_key,
         base_url=CONFIG.financial_datasets_api_url,
     )
+
+    financial_statements_request = FinancialStatementsRequest(
+        ticker="AAPL",
+        period="quarterly",
+        limit=5,
+        report_period_gte="2022-01-01",
+        report_period_lte="2023-01-01"
+    )
     try:
-        # company_news_response = client.fetch_company_news("AAPL", limit=5)  
-        # print("\nCOMPANY NEWS: ", company_news_response)
-        financial_statements_response = client.fetch_financial_statements("AAPL", "Q1", 5)
-        print("\nFINANCIAL STATEMENTS: ", financial_statements_response)
-        # financial_metrics_response = client.fetch_financial_metrics("AAPL", "quarterly",a 5)
-        # print("\nFINANCIAL METRICS: ", financial_metrics_response)
+        financial_statements_response = await client.fetch_financial_statements(financial_statements_request)
+        return financial_statements_response
+
 
     except APIError as e:
         print(f"API Error: {e}")

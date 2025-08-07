@@ -22,10 +22,10 @@ class CompanyNewsAgent(BaseModel):
     anthropic_client: AnthropicClient
     company_news_request: CompanyNewsRequest
 
-    async def _get_company_news(self, news_request: CompanyNewsRequest) -> CompanyNewsResponse | None:
+    async def _get_company_news(self, news_request: CompanyNewsRequest) -> CompanyNewsResponse:
         # Implementation here
         try:
-            company_news = self.financial_client.fetch_company_news(
+            company_news = await self.financial_client.fetch_company_news(
                 ticker=news_request.ticker,
                 limit=news_request.limit,
                 start_date=news_request.start_date,
@@ -37,11 +37,7 @@ class CompanyNewsAgent(BaseModel):
 
             print(f"NEWS: {company_news}")
         except Exception as e:
-            print(f"Error fetching company news: {e}")
-            return None
-        if not company_news:
-            print("No company news found.")
-            return None
+            raise Exception(f"Error fetching company news: {e}")
 
         return company_news
 
@@ -69,7 +65,7 @@ class CompanyNewsAgent(BaseModel):
 
         return prompt
 
-    async def analyze_news_with_llm(self) -> ChatCompletionResponse:
+    async def analyze_news_with_llm(self) -> ChatCompletionResponse | str | None:
         """
         Analyze trends using the LLM.
         """
@@ -118,7 +114,7 @@ if __name__ == "__main__":
         company_news_request=company_news_request
     )
 
-    analysis = asyncio.run(agent.analyze_metrics_with_llm())
+    analysis = asyncio.run(agent.analyze_news_with_llm())
     print(analysis)
 
 

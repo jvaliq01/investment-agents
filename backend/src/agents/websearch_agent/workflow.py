@@ -1,7 +1,8 @@
+from tkinter.filedialog import Open
 from openai import OpenAI
 import os
 from backend.src.config import CONFIG
-from backend.src.client.oai.model.request_model import OpenAIRequest
+from backend.src.client.oai.model.request_model import OpenAIRequest, ChatInput
 from backend.src.client.oai.model.response_model import OpenAIResponse
 from backend.src.client.oai.responses import OpenAIClient
 import asyncio
@@ -44,18 +45,20 @@ DO:
 
 """.strip()
 
-    async def _user_prompt(self) -> str:
+    async def _user_prompt(self) -> ChatInput:
+        
         return f"""
 Here is the stock that I want you to analyze: {self.ticker}
 """.strip()
 
 
-    async def analyze_web_with_llm(self) -> any:
+    async def analyze_web_with_llm(self) -> OpenAIResponse
         """
         Run the web search workflow using OpenAI's API.
         """
         user_prompt = await self._user_prompt()
         system_prompt = await self._system_prompt()
+
 
 
         request = OpenAIRequest(

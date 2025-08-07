@@ -15,7 +15,7 @@ MAX_RETRIES = 3  # Maximum number of retry attempts
 
 ALLOWABLE_ROLES = ["user", "assistant"]
 # Custom validator to check role
-def validate_role(role: str) -> str:
+def validate_role(role: str):
     if role not in ALLOWABLE_ROLES:
         raise ValueError(f"Role must be one of {ALLOWABLE_ROLES}")
 
@@ -24,15 +24,16 @@ class ChatMessage(BaseModel):
     content: str = Field(..., description="Message content text")
 
 class ChatCompletionRequest(BaseModel):
-    messages: List[ChatMessage] = Field(..., description="Messages for the chat session")
+    messages: list[ChatMessage] = Field(..., description="Messages for the chat session")
     max_tokens: int = Field(1024, ge=1)
-    model: str = Field(..., description="Model name, e.g. 'claude-3-sonnet-20240229'")
+    model: str = Field(..., description="Model name")
     temperature: float = Field(1.0, ge=0.0, le=1.0)
-    top_k: Optional[int] = Field(None, ge=0)
-    top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
-    stop_sequences: Optional[List[str]] = None
-    stream: bool = Field(False, description="Whether to stream response chunks")
-    system: Optional[str] = Field(None, description="System message to set the behavior of the assistant")
+
+    top_k: int | None = Field(default=None, ge=0)
+    top_p: float | None = Field(default=None, ge=0.0, le=1.0)
+    stop_sequences: list[str] | None = None
+    stream: bool = Field(default=False, description="Whether to stream response chunks")
+    system: str | None = None       
 
 class ChatCompletionResponse(BaseModel):
     id: str = Field(...)
@@ -59,14 +60,14 @@ class AnthropicClient(BaseModel):
     """
     Client for interacting with the Anthropic API.
     """
-    anthropic_api_key: str = Field(..., description="API key for Anthropic")
-    anthropic_api_url: str = Field(..., description="Base URL for the Anthropic API")
-    timeout: float = CONFIG.timeout
+    anthropic_api_key: str  | None
+    anthropic_api_url: str | None
+    timeout: int | None = CONFIG.timeout
     max_retries: int = CONFIG.max_retries
 
     async def chat_complete( 
         self, request: ChatCompletionRequest
-    ) -> ChatCompletionResponse | None:
+    ) -> ChatCompletionResponse:
         """
         Perform a chat completion call using the messages API.
         """
@@ -87,12 +88,10 @@ class AnthropicClient(BaseModel):
         try:
             result = await client.messages.create(**payload)
         except Exception as e:
-            print(f"Error in chat_complete: {e}")
-            return None 
+            raise Exception(f"Error during chat completion: {e}")
 
         if not result:
-            print("No result from chat_complete.")
-            return None
+            raise Exception("No response received from the chat completion API.")
 
         raw_response = result.model_dump(exclude_none=True)
         validated_response = ChatCompletionResponse.model_validate(raw_response)

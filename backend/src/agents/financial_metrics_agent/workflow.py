@@ -23,18 +23,17 @@ class FinancialMetricsAgent(BaseModel):
     fin_metrics_request: FinancialMetricsRequest
 
 
-    async def _get_financial_metrics(self) -> FinancialMetricsResponse | None:
+    async def _get_financial_metrics(self) -> FinancialMetricsResponse:
         # Implementation here
         try:
-            metrics = self.financial_client.fetch_financial_metrics(
+            metrics = await self.financial_client.fetch_financial_metrics(
                 self.fin_metrics_request
             )
         except Exception as e:
-            print(f"Error fetching financial metrics: {e}")
-            return None
+            raise Exception(f"Error fetching financial metrics: {e}")
+
         if not metrics:
-            print("No financial metrics found.")
-            return None
+            raise Exception("No financial metrics found.")
 
         return metrics
 
@@ -83,8 +82,10 @@ You are to analyze the following financial metrics:
             max_tokens=32000
         )
 
-
-        chat_response = await self.anthropic_client.chat_complete(analyze_metrics_request)
+        try: 
+            chat_response = await self.anthropic_client.chat_complete(analyze_metrics_request)
+        except Exception as e: 
+            raise Exception(f"Error during LLM analysis: {e}")
 
         print(f"TYPE: {type(chat_response)}")
 

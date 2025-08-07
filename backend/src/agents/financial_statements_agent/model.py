@@ -142,4 +142,3 @@ class FinancialStatementsRequest(BaseModel):
     limit: int
     report_period_gte: str
     report_period_lte: str
-

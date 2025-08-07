@@ -1,5 +1,4 @@
-from backend.src.client.oai.model.request_model import OpenAIRequest
-from backend.src.client.oai.model.response_model import OpenAIResponse
+from backend.src.client.oai import model as oai
 from backend.src.config import CONFIG
 from pydantic import BaseModel
 from openai import OpenAI, AsyncOpenAI
@@ -12,12 +11,12 @@ import json
 
 
 class OpenAIClient(BaseModel):
-    api_key: str = CONFIG.openai_api_key
-    base_url: str = CONFIG.openai_api_url
+    api_key: str | None = CONFIG.openai_api_key
+    base_url: str | None= CONFIG.openai_api_url
     timeout: Optional[float] = CONFIG.timeout
-    max_retries: Optional[int] = CONFIG.max_retries
+    max_retries: int = CONFIG.max_retries
 
-    async def create_responses_completion(self, request: OpenAIRequest) -> OpenAIResponse:
+    async def create_responses_completion(self, request: oai.OpenAIRequest) -> oai.OpenAIResponse:
         client = AsyncOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -34,28 +33,27 @@ class OpenAIClient(BaseModel):
         try:
             response = await client.responses.create(**payload)
         except Exception as e:
-            print(f"Error in create_responses_completion: {e}")
-            return None
-        
+            raise Exception(f"Error creating responses completion: {e}")
+
         # validate the response
-        validated_response = OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
-
-
+        validated_response = oai.OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
 
         return validated_response
     
 
     async def run_oai_responses_request(
         self,
-        request: OpenAIRequest,
-    ) -> str | None:
+        request: oai.OpenAIRequest,
+    ) -> oai.OpenAIResponse:
         try:
-            response: OpenAIResponse = await self.create_responses_completion(request)
-            validated_response = OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
+            response: oai.OpenAIResponse = await self.create_responses_completion(request)
+            validated_response = oai.OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
         except Exception as e:
-            print(f"Error during OpenAI request: {e}")
-            return None
+            raise Exception(f"Error running OpenAI responses request: {e}")
         
+        if not validated_response.output:
+            raise Exception("No output found in the response.")
+
         if validated_response.output[0].type == "message":
             output_text: str = validated_response.output[0].content[0].text
 

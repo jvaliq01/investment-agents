@@ -22,7 +22,7 @@ class FinancialStatementsAgent(BaseModel):
         print("\nFINANCIAL STATEMENTS REQUEST: ", self.fin_statements_request)
         # Implementation here
         try:
-            statements = self.financial_client.fetch_financial_statements(
+            statements = await self.financial_client.fetch_financial_statements(
                 self.fin_statements_request
             )
         except Exception as e:
@@ -56,12 +56,15 @@ class FinancialStatementsAgent(BaseModel):
 
         return prompt
 
-    async def analyze_statements_with_llm(self) -> ChatCompletionResponse:
+    async def analyze_statements_with_llm(self) -> ChatCompletionResponse | None:
         """
         Analyze trends using the LLM.
         """
-        # Implementation here
+        # Fetch prompt
         prompt = await self._prompt_for_financial_statements()  
+
+        if not prompt:
+            return None
 
         analyze_statements_request = ChatCompletionRequest(
             model="claude-3-7-sonnet-20250219",

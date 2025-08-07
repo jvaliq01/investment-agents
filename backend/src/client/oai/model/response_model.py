@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Any, Dict, Optional, Literal, Union
 from enum import Enum
 from datetime import datetime, timezone
@@ -15,15 +15,24 @@ class ResponseError(BaseModel):
 
 
 class BaseOutput(BaseModel):
-    type: str
+    type: Literal["message", "web_search_call"]
     id: str
     status: Literal["completed", "in_progress", "errored"] 
 
 
-class WebSearchCall(BaseOutput):
-    type: Literal["web_search_call"] = "web_search_call"  
+class WebSearchTool(BaseOutput):
     id: str = Field(default_factory=lambda: generate_id("ws"))
-    status: Literal["completed", "in_progress", "errored"]
+
+    @model_validator(mode="before")
+    def _force_type(cls, values):
+        values["type"] = "web_search_call"
+        return values
+
+    @field_validator("type")
+    def _ensure_type(cls, v):
+        if v != "web_search_call":
+            raise ValueError("type must be 'web_search_call'")
+        return v
 
 class WebSearchCitations(BaseModel):
     type: Literal["url_citation"] = "url_citation"
@@ -46,13 +55,12 @@ class MessageContent(BaseModel):
 
 
 class MessageOutput(BaseOutput):
-    type: Literal["message"] = "message"
     id: str = Field(default_factory=lambda: generate_id("msg"))
     role: Literal["assistant"] = "assistant"
-    content: list[MessageContent | WebSearchCall]
+    content: list[MessageContent]
 
 
-OutputVariant = Union[MessageOutput, WebSearchCall]
+OutputVariant = Union[MessageOutput, WebSearchTool]
 
 
 
@@ -66,7 +74,7 @@ class OpenAIResponse(BaseModel):
     output: list[OutputVariant] | None
 
     @field_validator("model", mode="before")
-    def _strip_suffix(v: str) -> str:
+    def _strip_suffix(cls, v: str) -> str:
         for base in OPENAI_MODELS.__args__:
             if v == base or v.startswith(base + "-"):
                 return base
