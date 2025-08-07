@@ -4,7 +4,7 @@ from enum import Enum
 from datetime import datetime, timezone
 import uuid
 from backend.src.client.oai.model.request_model import OPENAI_MODELS
-from backend.src.client.oai.utils import generate_id
+from utils import generate_id
 
        
 
@@ -13,47 +13,19 @@ class ResponseError(BaseModel):
     message: str
 
 
-
-class BaseOutput(BaseModel):
-    type: str
-    id: str
-    status: Literal["completed", "in_progress", "errored"] 
-
-
-class WebSearchCall(BaseOutput):
-    type: Literal["web_search_call"] = "web_search_call"  
-    id: str = Field(default_factory=lambda: generate_id("ws"))
-    status: Literal["completed", "in_progress", "errored"]
-
-class WebSearchCitations(BaseModel):
-    type: Literal["url_citation"] = "url_citation"
-    start_index: int
-    end_index: int
-    url: str
-    title: str 
-
-    @field_validator("url")
-    def validate_url(cls, v: str) -> str:
-        if not v.startswith("http://") and not v.startswith("https://"):
-            raise ValueError("URL must start with 'http://' or 'https://'")
-        return v
-
-
 class MessageContent(BaseModel):
-    type: Literal["output_text"] 
+    type: Literal["output_text"]  # add other content types as needed
     text: str
-    annotations: Optional[list[WebSearchCitations]]
 
-
-class MessageOutput(BaseOutput):
-    type: Literal["message"] = "message"
+class MessageOutput(BaseModel):
+    type: Literal["message"]
     id: str = Field(default_factory=lambda: generate_id("msg"))
-    role: Literal["assistant"] = "assistant"
-    content: list[MessageContent | WebSearchCall]
+    status: Literal["completed", "in_progress", "errored"]
+    role: Literal["assistant"]
+    content: list[MessageContent]
 
-
-OutputVariant = Union[MessageOutput, WebSearchCall]
-
+# Discriminated union – Pydantic chooses the right model based on "type"
+OutputVariant = Union[MessageOutput]
 
 
 class OpenAIResponse(BaseModel):
@@ -63,7 +35,7 @@ class OpenAIResponse(BaseModel):
     status: Literal["completed", "in_progress", "errored"]
     error: ResponseError | None = None
     model: OPENAI_MODELS
-    output: list[OutputVariant] | None
+    output: list[MessageOutput] | None
 
     @field_validator("model", mode="before")
     def _strip_suffix(v: str) -> str:

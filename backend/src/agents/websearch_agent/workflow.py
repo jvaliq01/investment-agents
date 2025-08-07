@@ -2,7 +2,6 @@ from openai import OpenAI
 import os
 from backend.src.config import CONFIG
 from backend.src.client.oai.model.request_model import OpenAIRequest
-from backend.src.client.oai.model.response_model import OpenAIResponse
 from backend.src.client.oai.responses import OpenAIClient
 import asyncio
 from pydantic import BaseModel, Field
@@ -67,10 +66,16 @@ Here is the stock that I want you to analyze: {self.ticker}
             tools=[{"type": "web_search_preview"}],
         )
 
-        response: OpenAIResponse = await self.openai_client.run_oai_responses_request(request)
-        return response
+        try: 
+            response = await self.openai_client.create_responses_completion(request)
+        except Exception as e:
+            print(f"Error during OpenAI request: {e}")
+            return None
+        if not response:
+            print("No response received from OpenAI.")
+            return None
 
-        
+        return response.output[1].content[0].text
 
     
 if __name__ == "__main__":
