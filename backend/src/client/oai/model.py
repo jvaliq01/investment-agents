@@ -101,7 +101,7 @@ class FunctionTool(BaseModel):
     type: Literal["function"] = Field(default="function", Literal=True)
     name: str
     parameters: Dict[str, Any]            # JSON schema
-    required: list[str]                    # spec “default true”
+    strict: bool = True                   # spec “default true”
     description: Optional[str] = None
 
 
