@@ -13,24 +13,12 @@ class ResponseError(BaseModel):
     message: str
 
 
-
-class BaseOutput(BaseModel):
-    type: str
-    id: str
-    status: Literal["completed", "in_progress", "errored"] 
-
-
-class WebSearchCall(BaseOutput):
-    type: Literal["web_search_call"] = "web_search_call"  
-    id: str = Field(default_factory=lambda: generate_id("ws"))
-    status: Literal["completed", "in_progress", "errored"]
-
 class WebSearchCitations(BaseModel):
     type: Literal["url_citation"] = "url_citation"
     start_index: int
     end_index: int
     url: str
-    title: str 
+    title: str
 
     @field_validator("url")
     def validate_url(cls, v: str) -> str:
@@ -45,17 +33,34 @@ class MessageContent(BaseModel):
     annotations: Optional[list[WebSearchCitations]]
 
 
+class BaseOutput(BaseModel):
+    type: Literal["message", "web_search_call"]
+    id: str
+    status: Literal["completed", "in_progress", "errored"] 
+    content: MessageContent | WebSearchCall
+
+class WebSearchCall(BaseOutput):
+    type: Literal["web_search_call"] = "web_search_call"  
+    id: str = Field(default_factory=lambda: generate_id("ws"))
+
+
+
 class MessageOutput(BaseOutput):
-    type: Literal["message"] = "message"
+    type = "message"
     id: str = Field(default_factory=lambda: generate_id("msg"))
     role: Literal["assistant"] = "assistant"
-    content: list[MessageContent | WebSearchCall]
 
 
 OutputVariant = Union[MessageOutput, WebSearchCall]
 
 
 
+# -------------- ERRORS --------------
+class OpenAIResponseError(Exception):
+    pass
+
+
+# -------------- RESPONSE MODEL --------------
 class OpenAIResponse(BaseModel):
     id: str = Field(default_factory=lambda: generate_id("resp"))
     object: Literal["response"] = "response"
@@ -66,7 +71,7 @@ class OpenAIResponse(BaseModel):
     output: list[OutputVariant] | None
 
     @field_validator("model", mode="before")
-    def _strip_suffix(v: str) -> str:
+    def _strip_suffix(cls, v: str) -> str:
         for base in OPENAI_MODELS.__args__:
             if v == base or v.startswith(base + "-"):
                 return base

@@ -41,5 +41,5 @@ class Input(BaseModel):
    object: Literal['list'] = 'list'
    first_id: str 
    last_id: str
-   type: str
+   type: Literal['']
    data: InputData

@@ -1,5 +1,5 @@
 from backend.src.client.oai.model.request_model import OpenAIRequest
-from backend.src.client.oai.model.response_model import OpenAIResponse
+from backend.src.client.oai.model.response_model import OpenAIResponse, OpenAIResponseError
 from backend.src.config import CONFIG
 from pydantic import BaseModel
 from openai import OpenAI, AsyncOpenAI
@@ -7,15 +7,39 @@ import asyncio
 from typing import Literal
 from typing import Optional
 import json
+from openai import (
+    APIError,
+    APIConnectionError,
+    RateLimitError,
+    BadRequestError,
+    AuthenticationError,
+    PermissionDeniedError,
+    NotFoundError,
+    UnprocessableEntityError,
+    InternalServerError,
+)
+
+
+REQUEST_ERRORS = (
+    APIError,
+    APIConnectionError,
+    RateLimitError,
+    BadRequestError,
+    AuthenticationError,
+    PermissionDeniedError,
+    NotFoundError,
+    UnprocessableEntityError,
+    InternalServerError,
+)
 
 
 
 
-class OpenAIClient(BaseModel):
-    api_key: str = CONFIG.openai_api_key
-    base_url: str = CONFIG.openai_api_url
+class AsyncOpenAIClient(BaseModel):
+    api_key: Optional[str] = CONFIG.openai_api_key
+    base_url: Optional[str] = CONFIG.openai_api_url
     timeout: Optional[float] = CONFIG.timeout
-    max_retries: Optional[int] = CONFIG.max_retries
+    max_retries: int = CONFIG.max_retries
 
     async def create_responses_completion(self, request: OpenAIRequest) -> OpenAIResponse:
         client = AsyncOpenAI(
@@ -25,7 +49,6 @@ class OpenAIClient(BaseModel):
             max_retries=self.max_retries
         )
 
-
         pretty = json.dumps(request.model_dump(exclude_none=True), indent=2, sort_keys=True)
         print(f"Payload for create_responses_completion:\n{pretty}")
 
@@ -33,14 +56,13 @@ class OpenAIClient(BaseModel):
 
         try:
             response = await client.responses.create(**payload)
-        except Exception as e:
-            print(f"Error in create_responses_completion: {e}")
-            return None
-        
+        except REQUEST_ERRORS as e:
+            raise OpenAIResponseError(
+                f"Failed to create response completion: {type(e).__name__}: {e}"
+            ) from e
+                
         # validate the response
         validated_response = OpenAIResponse.model_validate(response.model_dump(exclude_none=True))
-
-
 
         return validated_response
     
@@ -56,6 +78,7 @@ class OpenAIClient(BaseModel):
             print(f"Error during OpenAI request: {e}")
             return None
         
+        assert validated_response.output, "Why is the output empty? This should not happen."
         if validated_response.output[0].type == "message":
             output_text: str = validated_response.output[0].content[0].text
 
@@ -67,33 +90,5 @@ class OpenAIClient(BaseModel):
             return None
 
         return output_text.strip()
-    
-
-
-# Needs more work !!!!!!!!!!!
-
-class TextInputResponse(BaseModel):
-    id: str
-    object: str = "response"
-    created_at: int
-    background: bool | None = None
-
      
-
-
-
-# if __name__ == "__main__":
-#     # Example usage
-#     openai_client = OpenAIClient()
-
-#     request = OpenAIRequest(
-#         input=[{"role": "user", "content": """
-#         Can you give me some current news on Nvidia and create a trading strategy based on the 
-#         lastet news and the current market conditions?""".strip()}],
-#         model="gpt-4o",
-#         tools=[{"type": "web_search_preview"}],
-#     )
-
-#     response = asyncio.run(openai_client.create_responses_completion(request))
-#     print(response)
 

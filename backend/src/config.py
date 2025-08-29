@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 from dotenv import load_dotenv
 import os
 
@@ -8,17 +9,24 @@ class GlobalConfig(BaseModel):
     """
     Global configuration for the application.
     """
-    anthropic_api_key: str = Field(..., description="Anthropic API key for authentication")
-    anthropic_api_url: str = Field(..., description="Base URL for the API")
+    anthropic_api_key: Optional[str] 
+    """Anthropic API key for authentication"""
+    anthropic_api_url: Optional[str]
+    """Base URL for the API"""
 
-    financial_datasets_api_key: str = Field(..., description="Financial Datasets Api Key")
-    financial_datasets_api_url: str = Field(..., description="Financial Datasets Api URL")
+    financial_datasets_api_key: Optional[str]
+    """Financial Datasets Api Key"""
+    financial_datasets_api_url: Optional[str]
+    """Financial Datasets Api URL"""
 
-    openai_api_key: str = Field(None, description="OpenAI API key for authentication")
-    openai_api_url: str  = Field(None, description="Base URL for the OpenAI API")
-
-    timeout: int | None = Field(None, description="Timeout for API requests in seconds") 
-    max_retries: int | None = Field(None, description="Maximum number of retries for failed requests")
+    openai_api_key: Optional[str] 
+    """OpenAI API key for authentication"""
+    openai_api_url: Optional[str] 
+    """Base URL for the OpenAI API"""
+    timeout: Optional[int] = None
+    """Timeout for API requests in seconds"""
+    max_retries: int = 3
+    """Maximum number of retries for failed requests"""
 
 # Create a global config instance
 CONFIG = GlobalConfig(

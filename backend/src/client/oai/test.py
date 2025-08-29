@@ -1,4 +1,4 @@
-from responses import OpenAIClient, OpenAIRequest, OpenAIResponse
+from responses import AsyncOpenAIClient, OpenAIRequest, OpenAIResponse
 from typing import Literal, Union, Dict, Any, Optional
 import asyncio
 import json
@@ -20,7 +20,7 @@ def input_prompt():
     ]
 
 async def main():
-    openai_client = OpenAIClient()
+    openai_client = AsyncOpenAIClient()
 
     request = OpenAIRequest(
         input=input_prompt(),
